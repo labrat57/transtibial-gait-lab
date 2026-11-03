@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transtibial Gait Lab — Version 3.1</title>
+  <style>
+    /* ---------------------------------------------------------
+       PAGE STYLE
+       The site uses plain HTML, CSS and JavaScript so it can be
+       hosted directly from a GitHub Pages repository.
+       --------------------------------------------------------- */
+    :root {
+      --ink: #20252b;
+      --muted: #68727d;
+      --line: #d8dde3;
+      --page: #f3f5f7;
+      --blue: #2563eb;
+      --blue-pale: #e8efff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 22px;
+      color: var(--ink);
+      background: var(--page);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    h1 { margin: 0 0 5px; font-size: 26px; }
+    h2 { margin: 0 0 12px; font-size: 17px; }
+    p { color: var(--muted); line-height: 1.45; }
+
+    .header, .layout, .footer {
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .header p { margin: 0; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 270px) minmax(380px, 1fr) minmax(250px, 300px);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(20,30,40,.04);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    select, button, input[type="range"] { width: 100%; }
+    select, button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: white;
+      color: var(--ink);
+      font-size: 14px;
+    }
+    button { cursor: pointer; font-weight: 700; }
+    button:hover { background: #f8fafc; }
+    button.primary { color: white; background: var(--blue); border-color: var(--blue); }
+    button.primary:hover { background: #1d4ed8; }
+
+    .switch, .button-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+    .switch button, .button-row button { flex: 1; }
+    .switch button.selected {
+      color: var(--blue);
+      background: var(--blue-pale);
+      border-color: var(--blue);
+    }
+
+    .group { margin-bottom: 18px; }
+    .canvas {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+    svg { display: block; width: 100%; height: auto; }
+
+    .range-line { margin: 13px 0; }
+    .range-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 5px;
+      font-size: 12px;
+    }
+    .range-title output { color: var(--blue); font-weight: 700; }
+    input[type="range"] { accent-color: var(--blue); }
+
+    .svgbtn { cursor: pointer; }
+    .svgbtn:hover circle { filter: brightness(.94); }
+    .svgbtn:focus { outline: none; }
+    .svgbtn:focus-visible circle { stroke-width: 4; }
+    .svgbtn.off { opacity: .35; cursor: not-allowed; }
+    .inset-row[hidden] { display: none; }
+    .readout { padding-top: 9px; text-align: center; color: var(--muted); font-size: 12px; }
+    .note {
+      padding: 10px;
+      border-left: 3px solid var(--blue);
+      border-radius: 5px;
+      background: #f7f9fc;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .footer { margin-top: 14px; font-size: 11px; color: var(--muted); }
+
+    @media (max-width: 950px) {
+      .layout { grid-template-columns: 1fr 1fr; }
+      .animation-panel { grid-column: 1 / -1; grid-row: 1; }
+    }
+    .inset-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .inset h3 { margin: 0 0 6px; font-size: 12px; color: var(--muted); font-weight: 700; }
+    .inset .canvas { padding: 4px; }
+    .chip { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+    @media (max-width: 650px) {
+      body { padding: 12px; }
+      .layout { grid-template-columns: 1fr; }
+      .animation-panel { grid-column: auto; grid-row: auto; }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="header">
+    <div>
+      <h1>Transtibial Gait Lab</h1>
+      <p>Interactive gait-cycle and prosthetic-alignment learning tool</p>
+    </div>
+    <p>Version 3.3 · paired screws + study mode</p>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT PANEL: view, deviation preset, and playback controls -->
+    <section class="panel">
+      <h2>Gait settings</h2>
+
+      <div class="switch">
+        <button id="sagittalButton" class="selected" type="button">Sagittal</button>
+        <button id="frontalButton" type="button">Frontal</button>
+      </div>
+
+      <div class="group">
+        <label for="deviationSelect">Gait deviation preset</label>
+        <select id="deviationSelect">
+          <option value="normal">Neutral / normal gait</option>
+          <optgroup label="Sagittal plane">
+            <option value="heelCompression">Excessive heel compression</option>
+            <option value="hyperextensionIC">Knee hyperextension at initial contact</option>
+            <option value="flexedIC">Knee excessively flexed at initial contact</option>
+            <option value="abruptFlexion">Abrupt knee flexion</option>
+            <option value="earlyHeelRise">Early heel rise in midstance</option>
+            <option value="lateHeelOff">Late heel off in terminal stance</option>
+            <option value="dropOff">Drop-off in late stance</option>
+          </optgroup>
+          <optgroup label="Frontal plane">
+            <option value="lateralLoading">Lateral border loading</option>
+            <option value="medialLoading">Medial border loading</option>
+            <option value="narrowBOS">Narrow base of support</option>
+            <option value="wideBOS">Wide base of support</option>
+            <option value="medialPylon">Medially leaning pylon</option>
+            <option value="lateralPylon">Laterally leaning pylon</option>
+            <option value="medialGap">Medial brim gapping / lateral brim pressure</option>
+            <option value="lateralGap">Lateral brim gapping / medial brim pressure</option>
+            <option value="varusThrust">Varus thrust</option>
+            <option value="valgusThrust">Valgus thrust</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Study mode: randomize a deviation without showing its name. -->
+      <div class="group" id="studyModeGroup">
+        <div class="button-row">
+          <button id="randomDeviationButton" type="button">Randomize deviation</button>
+          <button id="revealDeviationButton" type="button" disabled>Reveal</button>
+          <button id="resetNormalButton" type="button">Reset to normal</button>
+        </div>
+        <div class="note" id="studyStatus" aria-live="polite">
+          Choose a plane, then randomize to quiz yourself.
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Prosthesis side</label>
+        <div class="switch" style="margin-bottom:0;">
+          <button id="rightSideButton" class="selected" type="button">Right</button>
+          <button id="leftSideButton" type="button">Left</button>
+        </div>
+      </div>
+
+      <div class="group" id="viewFromGroup" hidden>
+        <label>Frontal view from</label>
+        <div class="switch" style="margin-bottom:0;">
+          <button id="backViewButton" class="selected" type="button">Behind</button>
+          <button id="frontViewButton" type="button">In front</button>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="playButton" class="primary" type="button">Pause</button>
+        <button id="resetButton" type="button">Reset cycle</button>
+      </div>
+
+      <div class="group">
+        <label for="speedSlider">Walking speed</label>
+        <input id="speedSlider" type="range" min="0.3" max="1.8" step="0.1" value="1">
+        <div class="range-title"><span>Animation speed</span><output id="speedValue">1.0×</output></div>
+      </div>
+
+      <div class="note">
+        Choose a preset to exaggerate a movement.
+      </div>
+    </section>
+
+    <!-- CENTRE PANEL: stick figure and gait-cycle timeline -->
+    <section class="panel animation-panel">
+      <h2 id="viewTitle">Sagittal view · side-on</h2>
+      <div class="canvas">
+        <svg id="gaitSvg" viewBox="0 0 620 470" role="img"
+             aria-label="Animated stick figure showing a transtibial prosthesis">
+          <line x1="20" y1="405" x2="600" y2="405" stroke="#aab2bb" stroke-width="2"/>
+          <g id="figure"></g>
+        </svg>
+      </div>
+
+      <div class="readout">
+        <strong id="phaseText">Initial double-limb support</strong>
+        · <span id="percentText">0%</span> of cycle
+      </div>
+
+      <div class="group" style="margin-top:15px;">
+        <label for="phaseSlider">Scrub through gait cycle</label>
+        <input id="phaseSlider" type="range" min="0" max="100" step="1" value="0">
+      </div>
+
+      <div class="inset-row" id="insetRow" hidden>
+        <div class="inset" id="planCard" hidden>
+          <h3>Base of support · looking down on the floor</h3>
+          <div class="canvas">
+            <svg viewBox="0 0 300 210" role="img" aria-label="Top-down view of footprints and pelvis path">
+              <g id="planDrawing"></g>
+            </svg>
+          </div>
+          <div class="readout">Footprints and pelvis path · solid foot = on the floor</div>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="chip" style="background:#ef4444;"></span>pressure ·
+        <span class="chip" style="background:#f59e0b;"></span>gapping.
+        Brim effects are exaggerated and simplified for teaching.
+      </div>
+
+      <!-- The PDF's gait events are shown explicitly on this timeline. -->
+      <div class="note">
+        <strong>Gait events from the PDF:</strong><br>
+        0% foot strike · 12% opposite toe-off · 50% opposite foot strike ·
+        62% toe-off · 75% foot clearance · 85% tibia vertical · 100% next foot strike.
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: eight alignment set screws -->
+    <section class="panel">
+      <h2>Pylon alignment · tighten or loosen the screws</h2>
+      <p id="screwHelp"></p>
+
+      <div class="canvas" style="margin:12px 0;">
+        <svg id="screwSvg" viewBox="0 0 340 424" role="group"
+             aria-label="Pylon with a proximal and a distal adapter. Each screw has tighten and loosen buttons.">
+          <defs>
+            <linearGradient id="graphite" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stop-color="#3f444b"/>
+              <stop offset=".3" stop-color="#8b929b"/>
+              <stop offset=".55" stop-color="#6a7078"/>
+              <stop offset="1" stop-color="#383c42"/>
+            </linearGradient>
+          </defs>
+
+          <!-- bottom of the socket -->
+          <path d="M 112 0 L 228 0 Q 232 28 200 32 L 140 32 Q 108 28 112 0 Z" fill="#4b5563"/>
+          <text x="170" y="18" text-anchor="middle" font-size="10" fill="#e5e7eb" font-family="Arial, sans-serif">Socket</text>
+
+          <!-- proximal adapter: flared collar, body and a banded ring -->
+          <path d="M 122 34 L 218 34 L 198 62 L 142 62 Z" fill="url(#graphite)" stroke="#2f3338" stroke-width="2" stroke-linejoin="round"/>
+          <rect x="142" y="62" width="56" height="36" fill="url(#graphite)" stroke="#2f3338" stroke-width="2"/>
+          <rect x="139" y="98" width="62" height="8" rx="2" fill="url(#graphite)" stroke="#2f3338" stroke-width="2"/>
+          <circle cx="170" cy="102" r="1.8" fill="#1f2328"/>
+          <text x="170" y="84" text-anchor="middle" font-size="10" fill="#e5e7eb" font-family="Arial, sans-serif">Proximal</text>
+
+          <!-- pylon -->
+          <rect x="155" y="106" width="30" height="184" fill="url(#graphite)" stroke="#2f3338" stroke-width="2"/>
+          <line x1="155" y1="122" x2="185" y2="122" stroke="#2f3338" stroke-width="1"/>
+          <line x1="155" y1="274" x2="185" y2="274" stroke="#2f3338" stroke-width="1"/>
+
+          <!-- distal adapter: banded ring, body and a flared collar -->
+          <rect x="139" y="290" width="62" height="8" rx="2" fill="url(#graphite)" stroke="#2f3338" stroke-width="2"/>
+          <circle cx="170" cy="294" r="1.8" fill="#1f2328"/>
+          <rect x="142" y="298" width="56" height="36" fill="url(#graphite)" stroke="#2f3338" stroke-width="2"/>
+          <path d="M 142 334 L 198 334 L 218 362 L 122 362 Z" fill="url(#graphite)" stroke="#2f3338" stroke-width="2" stroke-linejoin="round"/>
+          <text x="170" y="320" text-anchor="middle" font-size="10" fill="#e5e7eb" font-family="Arial, sans-serif">Distal</text>
+
+          <!-- top of the foot -->
+          <path d="M 96 424 L 96 394 Q 100 368 140 366 L 240 366 Q 256 372 258 394 L 258 424 Z"
+                fill="#d8c9aa" stroke="#b9a883" stroke-width="2"/>
+          <text x="177" y="398" text-anchor="middle" font-size="10" fill="#7a6a47" font-family="Arial, sans-serif">Foot</text>
+
+          <g id="screwDrawing"></g>
+        </svg>
+      </div>
+
+      <div class="button-row" style="margin-top:14px;">
+        <button id="neutralButton" type="button">Reset all screws</button>
+      </div>
+
+      <div class="note">
+        Press <strong>↻</strong> to tighten a screw (clockwise) or <strong>↺</strong> to
+        loosen it (counter-clockwise). Each screw pushes the pyramid it presses on away
+        from its own side. At the proximal adapter that is the socket; at the distal
+        adapter it is the foot. Tighten one screw and loosen its partner to tilt the
+        adapter.
+      </div>
+    </section>
+  </main>
+
+  <p class="footer">
+    Source for gait-cycle timing: Chambers HG, Sutherland DH. A Practical Guide to Gait Analysis.
+    Journal of the American Academy of Orthopaedic Surgeons. 2002;10:222–231.
+    This is a simplified educational animation, not a patient-specific model.
+  </p>
+
+<script>
+"use strict";
+
+/* =============================================================
+   PART 1 — GAIT PARAMETERS TRANSCRIBED FROM THE PDF
+
+   The PDF's Table 1 and Table 2 provide the event timings below.
+   They describe a typical gait cycle:
+     - Stance: 0–62% (62% of the cycle)
+     - Swing:  62–100% (38% of the cycle)
+
+   Events:
+     0%   foot strike / initial contact
+     12%  opposite toe-off
+     50%  opposite foot strike
+     62%  toe-off
+     75%  foot clearance
+     85%  tibia vertical
+     100% next foot strike
+
+   The PDF does NOT provide a normative set of joint-angle values for
+   every instant of an adult transtibial gait cycle. Therefore, the
+   joint-angle curves below are illustrative animation values, while
+   the timing of the gait events follows the PDF.
+   ============================================================= */
+
+// Store event percentages as decimals from 0 to 1.
+const GAIT_EVENTS = {
+  footStrike: 0.00,
+  oppositeToeOff: 0.12,
+  oppositeFootStrike: 0.50,
+  toeOff: 0.62,
+  footClearance: 0.75,
+  tibiaVertical: 0.85,
+  nextFootStrike: 1.00
+};
+
+// These are the periods described in the PDF's Table 2.
+const GAIT_PERIODS = [
+  { start: 0.00, end: 0.12, name: "Initial double-limb support" },
+  { start: 0.12, end: 0.50, name: "Single-limb stance" },
+  { start: 0.50, end: 0.62, name: "Second double-limb support (pre-swing)" },
+  { start: 0.62, end: 0.75, name: "Initial swing" },
+  { start: 0.75, end: 0.85, name: "Midswing" },
+  { start: 0.85, end: 1.00, name: "Terminal swing" }
+];
+
+/* =============================================================
+   PART 1B — SAGITTAL GAIT PARAMETERS  (EDIT THESE TO REFINE THE WALK)
+
+   Everything that shapes the side-on walking pattern lives in this
+   block. Each curve is a list of [cycle position, angle in degrees]
+   keyframes. The curves are joined with a smooth, repeating spline,
+   so the motion never stops dead at a keyframe and 100% blends
+   perfectly back into 0%.
+
+   Angle conventions (all in degrees):
+     hip   +  = thigh swung forward (flexion),  - = behind the body (extension)
+     knee  +  = knee bent (flexion),  0 = straight, - = hyperextended
+     foot  +  = toes UP / heel down,  0 = flat on the floor,
+              -  = toes DOWN / heel up.
+     The foot angle is measured against the floor (not against the shin).
+
+   What each curve is doing:
+     0%   heel strike: knee almost straight, foot toes-up so the HEEL lands first
+     4–12% loading response: foot lowers heel-to-flat (the first rocker)
+     12–38% foot flat while the body rolls forward over it (midstance)
+     38–58% heel rises, hip extends, knee starts to bend (terminal stance)
+     62%  toe-off
+     73%  peak knee flexion, which lifts the foot clear of the floor
+     85%  shin roughly vertical, then the knee straightens ready for contact
+
+   The PDF gives the event timings (see PART 1) but not full joint-angle
+   curves, so these values are illustrative. They were fitted so that the
+   heel actually meets the floor at initial contact, both feet touch down
+   together in double support, the swing toe clears the floor, and the
+   planted foot does not slide.
+   ============================================================= */
+
+// How long one full gait cycle takes at walking-speed 1.0×.
+// (A typical adult cycle is roughly 1.0–1.2 s.)
+const CYCLE_SECONDS = 1.2;
+
+// y-position of the floor line in the SVG.
+const GROUND_Y = 405;
+
+// Segment sizes in SVG pixels.
+const BODY = {
+  thigh: 88,
+  shank: 88,
+  ankleHeight: 12,   // ankle joint to sole of foot
+  heelBack: 10,      // ankle joint to back of heel
+  toeFront: 38,      // ankle joint to tip of toes
+  brimOffset: 6,     // knee joint to the socket brim
+  socketLen: 34,     // socket brim to socket distal end
+  adapterLen: 10,    // length of each adapter block
+  adapterAt: 45,     // knee joint to the centre of the proximal adapter
+  distalAt: 16       // distal adapter centre, measured up from the ankle
+};
+
+const CURVES = {
+  hip: [
+    [0.00, 26], [0.12, 23], [0.30, 1],  [0.52, -15],
+    [0.62, -7], [0.73, 14], [0.85, 29], [0.93, 31]
+  ],
+  knee: [
+    [0.00, 4],  [0.14, 14], [0.35, 4],  [0.50, 15],
+    [0.62, 45], [0.73, 66], [0.85, 28], [0.95, 6]
+  ],
+  foot: [
+    [0.00, 24],  [0.04, 20],  [0.08, 7],   [0.12, 0],
+    [0.38, 0],   [0.50, -3],  [0.56, -27], [0.62, -34],
+    [0.68, -28], [0.73, -24], [0.80, -5],  [0.85, 2],
+    [0.92, 15]
+  ]
+};
+
+/* =============================================================
+   PART 1C — FRONTAL-PLANE PARAMETERS AND PROSTHESIS LOOK (EDIT THESE)
+
+   The frontal view reuses the sagittal model for leg heights and
+   ground contact, then adds sideways motion on top:
+     - the pelvis sways toward the stance leg
+     - the pelvis drops slightly on the swinging side
+     - the trunk leans a little toward the stance leg
+     - each planted foot stays put on the floor at the base-of-support width
+   Sizes are in SVG pixels (about 2 px per cm).
+   ============================================================= */
+
+const FRONTAL = {
+  hipHalf: 15,          // midline to hip joint
+  footHalf: 11,         // midline to centre of foot when walking normally
+  narrowFootHalf: 3,    // "narrow base of support" preset
+  wideFootHalf: 27,     // "wide base of support" preset
+  footWidth: 24,        // drawn width of the foot
+  sway: 7,              // sideways pelvis shift toward the stance leg (a bit exaggerated)
+  pelvisTiltDeg: 5,     // swing-side hip drop during single-limb stance
+  trunkLeanDeg: 3,      // trunk lean toward the stance leg
+  circumduction: 3,     // sideways bulge of the swinging foot
+  depthGain: 0.0012,    // makes the leg nearer the viewer look slightly larger
+  pxPerCm: 2
+};
+
+// Each screw is turned in quarter-turn steps, from -10 (loosened) to +10 (tightened),
+// relative to snug. One step tilts its adapter by SCREW_STEP_DEG degrees.
+// Each screw pushes the part it bears on AWAY from its own side: at the proximal
+// adapter that is the socket's pyramid, at the distal adapter it is the foot's pyramid.
+// Set SCREW_DIRECTION to -1 to reverse every screw if your clinic teaches the opposite.
+const SCREW_STEP_DEG = 0.8;
+const SCREW_MAX = 10;
+const SCREW_DIRECTION = 1;
+
+// Drawn size of the socket (half-widths in px) and of the adapter blocks.
+const SOCKET = { halfTop: 14, halfBottom: 8, limbTop: 11.5, limbBottom: 6.5, adapterHalf: 10 };
+
+/* =============================================================
+   PART 2 — APP STATE
+   ============================================================= */
+
+let plane = "sagittal";
+let prosSide = "right";        // which leg has the prosthesis: "right" or "left"
+let viewFrom = "back";         // frontal view only: "back" or "front"
+let phase = 0;                 // Current limb's cycle: 0.00 to 1.00
+let isPlaying = true;
+let walkingSpeed = 1;
+let previousFrameTime = null;
+let completedCycles = 0;      // whole cycles walked, so the floor keeps scrolling
+
+// Study mode stores the randomly selected deviation separately from the dropdown.
+// This lets the animation show the deviation while its name stays hidden.
+let hiddenChallenge = null;
+let challengeRevealed = false;
+
+// The eight set-screw values, in quarter-turns from snug (+ = tightened, - = loosened).
+const screwValues = {
+  proximalMedial: 0,
+  proximalLateral: 0,
+  proximalAnterior: 0,
+  proximalPosterior: 0,
+  distalMedial: 0,
+  distalLateral: 0,
+  distalAnterior: 0,
+  distalPosterior: 0
+};
+
+// Find important HTML elements once, then reuse them.
+const figure = document.getElementById("figure");
+const phaseSlider = document.getElementById("phaseSlider");
+const phaseText = document.getElementById("phaseText");
+const percentText = document.getElementById("percentText");
+const playButton = document.getElementById("playButton");
+const speedSlider = document.getElementById("speedSlider");
+const speedValue = document.getElementById("speedValue");
+const deviationSelect = document.getElementById("deviationSelect");
+const screwDrawing = document.getElementById("screwDrawing");
+const screwHelp = document.getElementById("screwHelp");
+const randomDeviationButton = document.getElementById("randomDeviationButton");
+const revealDeviationButton = document.getElementById("revealDeviationButton");
+const studyStatus = document.getElementById("studyStatus");
+const resetNormalButton = document.getElementById("resetNormalButton");
+
+// All animation functions should ask this helper which deviation is active.
+// In normal mode it comes from the dropdown; in quiz mode it is hiddenChallenge.
+function activeDeviation() {
+  return hiddenChallenge || deviationSelect.value;
+}
+
+// End a quiz and return control to the regular preset dropdown.
+function clearStudyChallenge() {
+  hiddenChallenge = null;
+  challengeRevealed = false;
+  revealDeviationButton.disabled = true;
+  revealDeviationButton.textContent = "Reveal";
+  studyStatus.textContent = "Choose a plane, then randomize to quiz yourself.";
+}
+
+/* =============================================================
+   PART 3 — SMALL MATHEMATICAL AND SVG HELPERS
+   ============================================================= */
+
+// Convert degrees to radians for JavaScript trigonometry.
+function rad(degrees) {
+  return degrees * Math.PI / 180;
+}
+
+// Linear interpolation: move smoothly from value A to value B.
+function lerp(a, b, amount) {
+  return a + (b - a) * amount;
+}
+
+// Smoothstep gives a gentle transition at the beginning and end.
+function smooth(t) {
+  t = Math.max(0, Math.min(1, t));
+  return t * t * (3 - 2 * t);
+}
+
+// Create a point at the end of a segment.
+// In SVG, x increases to the right and y increases downward.
+// Angle 0 means the segment points straight down.
+function endPoint(x, y, length, angleDegrees) {
+  const angle = rad(angleDegrees);
+  return {
+    x: x + length * Math.sin(angle),
+    y: y + length * Math.cos(angle)
+  };
+}
+
+// Draw a line segment.
+function line(x1, y1, x2, y2, color = "#20252b", width = 7) {
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+    stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
+}
+
+// Draw a joint circle.
+function joint(x, y, radius = 4, color = "#fff", outline = "#20252b") {
+  return `<circle cx="${x}" cy="${y}" r="${radius}" fill="${color}"
+    stroke="${outline}" stroke-width="2"/>`;
+}
+
+// Draw an oval body segment.
+function oval(x, y, rx, ry, fill = "#fff") {
+  return `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}"
+    fill="${fill}" stroke="#20252b" stroke-width="3"/>`;
+}
+
+/* =============================================================
+   PART 4 — SMOOTH CURVES AND LEG GEOMETRY
+   ============================================================= */
+
+// Read a value from a repeating keyframe curve at cycle position p.
+// This is a cubic Hermite (Catmull-Rom style) spline: smooth through
+// every keyframe, and wrapping from 100% back round to 0%.
+function curveAt(keys, p) {
+  p = ((p % 1) + 1) % 1;
+  const n = keys.length;
+
+  let i = n - 1;
+  for (let j = 0; j < n; j++) if (keys[j][0] <= p) i = j;
+
+  // Fetch keyframe k, wrapping around the cycle (time shifts by ±1).
+  const key = (k) => {
+    const lap = Math.floor(k / n);
+    const m = ((k % n) + n) % n;
+    return [keys[m][0] + lap, keys[m][1]];
+  };
+
+  const [t0, v0] = key(i - 1);
+  const [t1, v1] = key(i);
+  const [t2, v2] = key(i + 1);
+  const [t3, v3] = key(i + 2);
+  const pp = p < keys[0][0] ? p + 1 : p;
+
+  const slope1 = (v2 - v0) / (t2 - t0);
+  const slope2 = (v3 - v1) / (t3 - t1);
+  const h = t2 - t1;
+  const s = (pp - t1) / h;
+  const s2 = s * s, s3 = s2 * s;
+
+  return (2 * s3 - 3 * s2 + 1) * v1 + (s3 - 2 * s2 + s) * h * slope1 +
+         (-2 * s3 + 3 * s2) * v2 + (s3 - s2) * h * slope2;
+}
+
+// Build one leg with the hip joint at (0, 0).
+//   hipDeg      thigh angle      (+ = forward)
+//   kneeDeg     knee flexion
+//   footDeg     foot angle against the floor (+ = toes up)
+//   shankOffset extra pylon tilt at the proximal adapter (prosthetic alignment)
+// The socket follows the residual limb; the pylon tilts at the proximal adapter.
+// Returns the joint positions plus the heel and toe points, and
+// `lowest` = how far the lowest part of the foot hangs below the hip.
+function computeLeg(hipDeg, kneeDeg, footDeg, shankOffset = 0) {
+  const socketAxis = hipDeg - kneeDeg;
+  const knee = endPoint(0, 0, BODY.thigh, hipDeg);
+  const adapter = endPoint(knee.x, knee.y, BODY.adapterAt, socketAxis);
+  const ankle = endPoint(adapter.x, adapter.y, BODY.shank - BODY.adapterAt, socketAxis + shankOffset);
+
+  // Unit vectors along the foot: "fwd" runs heel-to-toe, "down" points at the sole.
+  const f = rad(footDeg);
+  const fwd = { x: Math.cos(f), y: -Math.sin(f) };
+  const down = { x: Math.sin(f), y: Math.cos(f) };
+
+  const heel = {
+    x: ankle.x - BODY.heelBack * fwd.x + BODY.ankleHeight * down.x,
+    y: ankle.y - BODY.heelBack * fwd.y + BODY.ankleHeight * down.y
+  };
+  const toe = {
+    x: ankle.x + BODY.toeFront * fwd.x + BODY.ankleHeight * down.x,
+    y: ankle.y + BODY.toeFront * fwd.y + BODY.ankleHeight * down.y
+  };
+
+  return { knee, adapter, ankle, heel, toe, footDeg, lowest: Math.max(heel.y, toe.y) };
+}
+
+/* =============================================================
+   PART 5 — DEVIATION PRESETS
+
+   These are visual demonstrations layered over the base curves.
+   They are deliberately kept separate from the normal gait data
+   so that the neutral walking pattern is easy to edit. Each effect
+   fades in and out smoothly so there are no jumps at 0%/100%.
+   ============================================================= */
+
+// 1 at initial contact, fading to 0 by 12%, and ramping in across the
+// last 10% of the cycle (the leg is preparing for contact).
+function contactWindow(p) {
+  if (p < 0.12) return 1 - smooth(p / 0.12);
+  if (p > 0.90) return smooth((p - 0.90) / 0.10);
+  return 0;
+}
+
+function applySagittalDeviation(angles, p, deviation) {
+  let hip = angles.hip;
+  let knee = angles.knee;
+
+  if (plane !== "sagittal") return { hip, knee };
+
+  switch (deviation) {
+    case "hyperextensionIC":
+      // Knee driven back into extension around initial contact.
+      knee -= 18 * contactWindow(p);
+      break;
+
+    case "flexedIC":
+      // Knee stays more flexed at initial contact.
+      knee += 22 * contactWindow(p);
+      break;
+
+    case "abruptFlexion":
+      // Rapid extra knee flexion in early loading response, then recovery.
+      knee += 25 * smooth((p - 0.02) / 0.10) * (1 - smooth((p - 0.14) / 0.16));
+      break;
+
+    case "dropOff":
+      // Extra knee flexion as the limb unloads in late stance.
+      knee += 15 * smooth((p - 0.50) / 0.12) * (1 - smooth((p - 0.62) / 0.10));
+      break;
+  }
+
+  return { hip, knee };
+}
+
+// Foot angle against the floor (+ = toes up) for the prosthetic foot.
+function footPitch(p, deviation) {
+  let pitch = curveAt(CURVES.foot, p);
+
+  switch (deviation) {
+    case "heelCompression":
+      // Heel cushion collapses: the foot slaps down past flat.
+      if (p < 0.12) pitch -= 16 * Math.sin(Math.PI * p / 0.12);
+      break;
+
+    case "earlyHeelRise": {
+      // Heel lifts too soon in midstance.
+      const w = smooth((p - 0.22) / 0.10) * (1 - smooth((p - 0.50) / 0.08));
+      pitch -= 16 * w;
+      break;
+    }
+
+    case "lateHeelOff": {
+      // Heel stays down too long, then lifts late.
+      const w = smooth((p - 0.38) / 0.08) * (1 - smooth((p - 0.58) / 0.06));
+      pitch *= 1 - 0.8 * w;
+      break;
+    }
+
+    case "dropOff": {
+      // Foot flattens late in stance as support falls away.
+      const w = smooth((p - 0.48) / 0.08) * (1 - smooth((p - 0.62) / 0.08));
+      pitch += 12 * w;
+      break;
+    }
+  }
+
+  return pitch;
+}
+
+/* =============================================================
+   PART 6 — SIDE-ON POSE, GROUND CONTACT AND WALKING PROGRESS
+
+   The legs are built from the joint curves above. The pelvis is then
+   placed at whatever height puts the lowest part of either foot ON the
+   floor, so the heel genuinely lands at initial contact and the body
+   bobs naturally.
+
+   The floor ticks scroll backwards at exactly the rate that keeps the
+   planted foot still, so the stance foot does not skate along the ground.
+   ============================================================= */
+
+// The prosthetic leg is the near/right leg; the biological leg is half a cycle behind.
+function sagittalPose(p, deviation) {
+  const bioP = (p + 0.5) % 1;
+
+  const bio = computeLeg(
+    curveAt(CURVES.hip, bioP),
+    curveAt(CURVES.knee, bioP),
+    curveAt(CURVES.foot, bioP)
+  );
+
+  const base = { hip: curveAt(CURVES.hip, p), knee: curveAt(CURVES.knee, p) };
+  const angles = applySagittalDeviation(base, p, deviation);
+
+  // Sagittal set screws: proximal tilts the pylon, distal tilts the foot.
+  const k = SCREW_STEP_DEG * SCREW_DIRECTION;
+  const proximalAngle = (screwValues.proximalAnterior - screwValues.proximalPosterior) * k;
+  const distalAngle = (screwValues.distalAnterior - screwValues.distalPosterior) * k;
+
+  const pros = computeLeg(
+    angles.hip, angles.knee, footPitch(p, deviation) + distalAngle, proximalAngle
+  );
+
+  return { bio, pros };
+}
+
+// How much body weight the prosthetic leg is carrying (0 to 1).
+// It loads during initial double support and unloads in pre-swing.
+function prostheticLoad(p) {
+  p = ((p % 1) + 1) % 1;
+  if (p < 0.12) return smooth(p / 0.12);
+  if (p < 0.50) return 1;
+  if (p < 0.62) return 1 - smooth((p - 0.50) / 0.12);
+  return 0;
+}
+
+// 0 = the foot pivots on its heel, 1 = it pivots on its toes.
+function contactBlend(footDeg) {
+  return Math.max(0, Math.min(1, (2 - footDeg) / 4));
+}
+
+// Work out how far the floor must scroll at each point in the cycle.
+const PROGRESS_STEPS = 240;
+let progress = { key: "", table: [0], stride: 0 };
+
+function rebuildProgress(deviation) {
+  const table = [0];
+  let previous = sagittalPose(0, deviation);
+
+  for (let i = 1; i <= PROGRESS_STEPS; i++) {
+    const current = sagittalPose(i / PROGRESS_STEPS, deviation);
+
+    // Movement of the pivot point relative to the pelvis (heel or toe).
+    const movement = (a, b) => {
+      const c = contactBlend((a.footDeg + b.footDeg) / 2);
+      return (1 - c) * (b.heel.x - a.heel.x) + c * (b.toe.x - a.toe.x);
+    };
+
+    const load = prostheticLoad((i - 0.5) / PROGRESS_STEPS);
+    const step = load * movement(previous.pros, current.pros) +
+                 (1 - load) * movement(previous.bio, current.bio);
+
+    // The planted foot stays still, so the pelvis moves forward by the opposite amount.
+    table.push(table[i - 1] - step);
+    previous = current;
+  }
+
+  progress = {
+    key: progressKey(deviation),
+    table,
+    stride: table[PROGRESS_STEPS]
+  };
+}
+
+function progressKey(deviation) {
+  return [
+    deviation,
+    screwValues.proximalAnterior, screwValues.proximalPosterior,
+    screwValues.distalAnterior, screwValues.distalPosterior
+  ].join("|");
+}
+
+// Distance the pelvis has travelled after `q` cycles (whole cycles + fraction).
+function distanceAtAbs(q, deviation) {
+  if (progress.key !== progressKey(deviation)) rebuildProgress(deviation);
+
+  const whole = Math.floor(q);
+  const f = (q - whole) * PROGRESS_STEPS;
+  const i = Math.min(PROGRESS_STEPS - 1, Math.floor(f));
+  const within = progress.table[i] +
+                 (progress.table[i + 1] - progress.table[i]) * (f - i);
+
+  return within + whole * progress.stride;
+}
+
+function distanceTravelled(p, deviation) {
+  return distanceAtAbs(completedCycles + p, deviation);
+}
+
+// Draw a foot as a small wedge: heel, toe and ankle.
+function foot(leg, ox, oy, outline, fill) {
+  const pt = (q) => `${(ox + q.x).toFixed(1)},${(oy + q.y).toFixed(1)}`;
+  return `<polygon points="${pt(leg.heel)} ${pt(leg.toe)} ${pt(leg.ankle)}"
+    fill="${fill}" stroke="${outline}" stroke-width="4" stroke-linejoin="round"/>`;
+}
+
+function unitVec(from, to) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: dx / len, y: dy / len, len };
+}
+
+function drawSagittal() {
+  const p = phase;
+  const deviation = activeDeviation();
+
+  const hipX = 310;
+  const pose = sagittalPose(p, deviation);
+  const brim = brimState(p, deviation);
+
+  // Drop the pelvis until the lowest foot point rests on the floor.
+  // (2 px allows for the thickness of the outline.)
+  const lowest = Math.max(pose.bio.lowest, pose.pros.lowest);
+  const hipY = (GROUND_Y - 2) - lowest;
+  const shoulderY = hipY - 90;
+  const headY = hipY - 150;
+
+  // Separate the two hips slightly so both legs stay visible.
+  const bioX = hipX - 9;
+  const prosX = hipX + 9;
+
+  let drawing = "";
+
+  // Floor ticks scroll backwards as the figure walks forward.
+  const spacing = 40;
+  const offset = distanceTravelled(p, deviation);
+  const firstTick = 20 + ((((-offset) % spacing) + spacing) % spacing);
+  for (let x = firstTick; x <= 600; x += spacing) {
+    drawing += `<line x1="${x.toFixed(1)}" y1="${GROUND_Y}" x2="${x.toFixed(1)}"
+      y2="${GROUND_Y + 9}" stroke="#aab2bb" stroke-width="2"/>`;
+  }
+
+  // Torso, neck, head, and pelvis.
+  drawing += line(hipX, hipY - 8, hipX, shoulderY + 25, "#20252b", 10);
+  drawing += oval(hipX, shoulderY - 4, 21, 34);
+  drawing += line(hipX, headY + 20, hipX, shoulderY - 36, "#20252b", 5);
+  drawing += joint(hipX, hipY, 5, "#e8efff", "#20252b");
+  drawing += `<circle cx="${hipX}" cy="${headY}" r="19" fill="#fff" stroke="#20252b" stroke-width="3"/>`;
+
+  // Biological leg (grey), drawn behind the prosthesis.
+  const bio = pose.bio;
+  const bk = { x: bioX + bio.knee.x, y: hipY + bio.knee.y };
+  const ba = { x: bioX + bio.ankle.x, y: hipY + bio.ankle.y };
+  drawing += line(bioX, hipY, bk.x, bk.y, "#66717c", 8);
+  drawing += line(bk.x, bk.y, ba.x, ba.y, "#66717c", 7);
+  drawing += foot(bio, bioX, hipY, "#66717c", "#eef0f2");
+  drawing += joint(bk.x, bk.y, 5, "#fff", "#66717c");
+  drawing += joint(ba.x, ba.y, 4, "#fff", "#66717c");
+
+  // Prosthetic side: natural thigh and knee, then socket, adapters, pylon and foot.
+  const pros = pose.pros;
+  const pk = { x: prosX + pros.knee.x, y: hipY + pros.knee.y };
+  const pp = { x: prosX + pros.adapter.x, y: hipY + pros.adapter.y };
+  const pa = { x: prosX + pros.ankle.x, y: hipY + pros.ankle.y };
+  drawing += line(prosX, hipY, pk.x, pk.y, "#4b5563", 10);
+  drawing += drawProsthesis({ K: pk, P1: pp, A: pa, su: unitVec(pk, pp), scale: 1, pressure: brim.ap });
+  drawing += foot(pros, prosX, hipY, "#2563eb", "#dbeafe");
+  drawing += joint(pk.x, pk.y, 5, "#fff", "#4b5563");
+  drawing += joint(pa.x, pa.y, 4, "#dbeafe", "#2563eb");
+
+  // A dot marks where the prosthetic foot is touching the floor.
+  if (pros.lowest >= lowest - 1.5) {
+    const c = contactBlend(pros.footDeg);
+    const contactX = prosX + pros.heel.x + (pros.toe.x - pros.heel.x) * c;
+    drawing += `<circle cx="${contactX.toFixed(1)}" cy="${GROUND_Y}" r="4" fill="#2563eb"/>`;
+  }
+
+  // Viewing the left side means the person faces the other way.
+  figure.innerHTML = prosSide === "left"
+    ? `<g transform="translate(620 0) scale(-1 1)">${drawing}</g>`
+    : drawing;
+}
+
+/* =============================================================
+   PART 7 — PROSTHESIS DRAWING AND SOCKET-BRIM MECHANICS
+
+   The prosthesis is drawn from the knee down: a socket around the
+   residual limb, a proximal adapter, a pylon, a distal adapter, and
+   the foot. It is used by both views.
+
+   Brim pressure and gapping are an exaggerated, simplified teaching
+   model. If the foot sits too far to one side of the socket the limb
+   has to press on the opposite wall at the brim and gap on the other.
+   ============================================================= */
+
+function sideSign() { return prosSide === "right" ? 1 : -1; }   // patient-right positive
+function viewSign() { return viewFrom === "back" ? 1 : -1; }    // seen from behind: right is on the viewer's right
+
+// A 0-to-1 bump that rises between a..b and falls between c..d.
+function bump(p, a, b, c, d) {
+  return smooth((p - a) / (b - a)) * (1 - smooth((p - c) / (d - c)));
+}
+
+// Frontal-plane alignment of the prosthesis.
+//   lp  proximal adapter: how far the pylon is tilted relative to the socket.
+//       + = the foot end of the pylon points toward the lateral side.
+//   ld  distal adapter: how far the pylon leans when the foot is flat on the floor.
+//       + = the top of the pylon leans toward the midline ("medially leaning pylon").
+//   roll, thrust  extra foot roll or knee thrust from a preset (stance only).
+// stanceAxis is the lean of the SOCKET while the foot is planted (+ = top toward the midline).
+// The two adapters add a fixed bend; they never change during the walk.
+function frontalAlignment(p, deviation) {
+  const sv = screwValues;
+  const k = SCREW_STEP_DEG * SCREW_DIRECTION;
+
+  let lp = (sv.proximalLateral - sv.proximalMedial) * k;
+  let ld = (sv.distalMedial - sv.distalLateral) * k;
+  let roll = 0, thrust = 0;
+
+  const env = (p >= 0.12 && p <= 0.50) ? Math.sin(Math.PI * (p - 0.12) / 0.38) : 0;
+
+  switch (deviation) {
+    case "medialPylon": ld += 7; break;
+    case "lateralPylon": ld -= 7; break;
+    case "medialGap": lp -= 5; break;       // socket top leans medially, so lateral pressure
+    case "lateralGap": lp += 5; break;
+    case "lateralLoading": roll = 5; break; // lateral edge of the foot loaded
+    case "medialLoading": roll = -5; break;
+    case "varusThrust": thrust = -4 * env; break;
+    case "valgusThrust": thrust = 4 * env; break;
+  }
+
+  return { lp, ld, roll, thrust, stanceAxis: ld + roll + thrust - lp };
+}
+
+// Brim state at cycle position p.
+//   ml: +1 = lateral brim pressure / medial gapping, -1 = the reverse
+//   ap: +1 = anterior brim pressure / posterior gapping, -1 = the reverse
+//   outset: degrees the socket top leans toward the midline in stance (negative = away)
+function brimState(p, deviation) {
+  const sv = screwValues;
+  const load = prostheticLoad(p);
+  const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+
+  // Frontal: when the socket top leans toward the midline over a planted foot, the limb
+  // presses on the lateral wall and gaps medially (and the reverse).
+  let o = frontalAlignment(p, deviation).stanceAxis;
+  o += ({ wideBOS: 3, narrowBOS: -3 })[deviation] || 0;
+  o *= load;
+
+  // Sagittal: foot placed anterior -> anterior pressure and posterior gapping.
+  let s = ((sv.proximalAnterior - sv.proximalPosterior) -
+           0.5 * (sv.distalAnterior - sv.distalPosterior)) * SCREW_STEP_DEG * SCREW_DIRECTION * load;
+  const early = p < 0.12 ? 1 - smooth(p / 0.12) : 0;
+  switch (deviation) {
+    case "hyperextensionIC": s += 8 * early; break;
+    case "flexedIC": s -= 8 * early; break;
+    case "abruptFlexion": s -= 8 * bump(p, 0.02, 0.12, 0.14, 0.30); break;
+    case "heelCompression": s -= 5 * early; break;
+    case "earlyHeelRise": s += 5 * bump(p, 0.25, 0.35, 0.45, 0.55); break;
+    case "lateHeelOff": s -= 5 * bump(p, 0.38, 0.46, 0.56, 0.64); break;
+    case "dropOff": s -= 7 * bump(p, 0.48, 0.56, 0.60, 0.68); break;
+  }
+
+  return { outset: o, ml: clamp1(o / 5), ap: clamp1(s / 8) };
+}
+
+// Draw socket + limb + adapters + pylon in screen coordinates.
+//   K  knee joint        P1  centre of proximal adapter      A  ankle joint
+//   su unit vector down the socket axis
+//   scale   shrinks lengths when the leg is foreshortened (frontal view)
+//   pressure  signed -1..1 along the "right-hand" normal of the socket:
+//             positive = pressure on that wall, gapping on the other
+function drawProsthesis(o) {
+  const { K, P1, A, su, pressure } = o;
+  const sc = Math.max(0.35, Math.min(1, o.scale));
+  const n = { x: su.y, y: -su.x };
+
+  const at = (base, dir, along, across, nrm = n) => ({
+    x: base.x + dir.x * along + nrm.x * across,
+    y: base.y + dir.y * along + nrm.y * across
+  });
+  const lerpPt = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const pts = (arr) => arr.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(" ");
+  const poly = (arr, fill, stroke, sw, extra = "") =>
+    `<polygon points="${pts(arr)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"
+      stroke-linejoin="round" ${extra}/>`;
+  const screw = (c) =>
+    `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.2" fill="#8d959d" stroke="#4b535b" stroke-width="1"/>`;
+
+  const T0 = at(K, su, BODY.brimOffset * sc, 0);
+  const B0 = at(P1, su, -BODY.adapterLen / 2 * sc, 0);
+
+  const mag = Math.min(1, Math.abs(pressure));
+  const sg = pressure >= 0 ? 1 : -1;
+
+  // Points along the socket wall and along the limb inside it (f: 0 = brim, 1 = distal end).
+  const wall = (f, side) =>
+    at(lerpPt(T0, B0, f), su, 0, side * (SOCKET.halfTop + (SOCKET.halfBottom - SOCKET.halfTop) * f));
+  const limbCentre = (f) =>
+    lerpPt(at(T0, su, 0, pressure * 8), at(B0, su, 0, -pressure * 4), f);
+  const limbEdge = (f, side) =>
+    at(limbCentre(f), su, 0, side * (SOCKET.limbTop + (SOCKET.limbBottom - SOCKET.limbTop) * f));
+
+  let m = "";
+
+  // Socket body (see-through so the limb shows).
+  m += poly([wall(0, -1), wall(0, 1), wall(1, 1), wall(1, -1)], "#dbeafe", "none", 0, 'opacity=".6"');
+
+  // Gap on the side away from the pressure.
+  if (mag > 0.05) {
+    m += poly([wall(0, -sg), wall(0.6, -sg), limbEdge(0.6, -sg), limbEdge(0, -sg)],
+      "#f59e0b", "none", 0, `opacity="${Math.min(1, mag * 1.4).toFixed(2)}"`);
+  }
+
+  // Residual limb, drawn up to the knee.
+  m += poly([at(K, su, 0, 8), limbEdge(0, 1), limbEdge(1, 1),
+             limbEdge(1, -1), limbEdge(0, -1), at(K, su, 0, -8)],
+    "#f1d6c1", "#c9a98f", 1.5);
+
+  // Pressure: strong at the brim, with a smaller counter-pressure low on the opposite wall.
+  if (mag > 0.05) {
+    const inward = (q, d) => at(q, su, 0, -sg * d);
+    m += poly([wall(0, sg), wall(0.45, sg), inward(wall(0.45, sg), 6), inward(wall(0, sg), 6)],
+      "#ef4444", "none", 0, `opacity="${Math.min(1, mag * 1.3).toFixed(2)}"`);
+    m += poly([wall(0.62, -sg), wall(1, -sg), at(wall(1, -sg), su, 0, sg * 6), at(wall(0.62, -sg), su, 0, sg * 6)],
+      "#ef4444", "none", 0, `opacity="${(mag * 0.8).toFixed(2)}"`);
+    const tip = at(wall(0.12, sg), su, 0, sg * 1);
+    m += poly([tip, at(tip, su, -5, sg * 14), at(tip, su, 5, sg * 14)],
+      "#ef4444", "none", 0, `opacity="${Math.min(1, mag * 1.3).toFixed(2)}"`);
+  }
+
+  // Socket outline and the brim edge.
+  m += poly([wall(0, -1), wall(0, 1), wall(1, 1), wall(1, -1)], "none", "#2563eb", 2.5);
+  const b1 = wall(0, -1), b2 = wall(0, 1);
+  m += `<line x1="${b1.x.toFixed(1)}" y1="${b1.y.toFixed(1)}" x2="${b2.x.toFixed(1)}" y2="${b2.y.toFixed(1)}"
+    stroke="#1d4ed8" stroke-width="5" stroke-linecap="round"/>`;
+
+  // Adapters and pylon.
+  const hl = BODY.adapterLen / 2 * sc;
+  const pu = unitVec(P1, A);
+  const pn = { x: pu.y, y: -pu.x };
+  const box = (c, dir, nrm) => [
+    at(c, dir, -hl, -SOCKET.adapterHalf, nrm), at(c, dir, -hl, SOCKET.adapterHalf, nrm),
+    at(c, dir, hl, SOCKET.adapterHalf, nrm), at(c, dir, hl, -SOCKET.adapterHalf, nrm)
+  ];
+  const Dc = at(A, pu, -BODY.distalAt * sc, 0, pn);
+
+  const tubeA = at(P1, pu, hl, 0, pn), tubeB = at(Dc, pu, -hl, 0, pn);
+  if ((tubeB.x - tubeA.x) * pu.x + (tubeB.y - tubeA.y) * pu.y > 1) {
+    m += poly([at(tubeA, pu, 0, -4.5, pn), at(tubeA, pu, 0, 4.5, pn),
+               at(tubeB, pu, 0, 4.5, pn), at(tubeB, pu, 0, -4.5, pn)],
+      "#e7e9ec", "#626b75", 2);
+  }
+
+  m += poly(box(P1, su, n), "#cfd4d9", "#626b75", 2);
+  m += screw(at(P1, su, 0, -SOCKET.adapterHalf)) + screw(at(P1, su, 0, SOCKET.adapterHalf));
+  m += poly(box(Dc, pu, pn), "#cfd4d9", "#626b75", 2);
+  m += screw(at(Dc, pu, 0, -SOCKET.adapterHalf, pn)) + screw(at(Dc, pu, 0, SOCKET.adapterHalf, pn));
+
+  return m;
+}
+
+/* =============================================================
+   PART 8 — FRONTAL VIEW
+
+   Seen from behind (or in front). All sideways positions are kept in
+   "w" units: positive w = the lateral (outer) side of the PROSTHETIC leg,
+   so the biological leg is on the negative side. They are mapped to the
+   screen at the very end, which is what makes left/right and
+   front/behind simple.
+   ============================================================= */
+
+function footHalfFor(deviation) {
+  if (deviation === "narrowBOS") return FRONTAL.narrowFootHalf;
+  if (deviation === "wideBOS") return FRONTAL.wideFootHalf;
+  return FRONTAL.footHalf;
+}
+
+function frontalPose(p, deviation) {
+  const F = FRONTAL;
+  const sag = sagittalPose(p, deviation);        // leg heights and ground contact
+  const bs = brimState(p, deviation);
+  const fa = frontalAlignment(p, deviation);
+  const load = prostheticLoad(p);
+
+  // +1 while the prosthetic leg is in single-limb stance, -1 while the biological leg is.
+  const sway = Math.sin(2 * Math.PI * (p - 0.06));
+  const shift = F.sway * sway;
+  const tilt = F.pelvisTiltDeg * sway;
+  const hipX = F.hipHalf * Math.cos(rad(tilt));
+  const dyPros = -F.hipHalf * Math.sin(rad(tilt));  // stance hip rides higher
+
+  const footHalf = footHalfFor(deviation);
+  const depthSign = viewFrom === "front" ? 1 : -1;
+
+  const make = (leg, sign, isPros, dy, legPhase) => {
+    const swingProgress = legPhase > 0.62 ? (legPhase - 0.62) / 0.38 : 0;
+    const hipW = sign * hipX + shift;
+    const footW = sign * (footHalf + F.circumduction * Math.sin(Math.PI * swingProgress));
+    const t = Math.max(0.25, Math.min(0.75, leg.knee.y / leg.ankle.y));
+
+    let kneeW = hipW + (footW - hipW) * t;
+    let adapterW = hipW + (footW - hipW) * (leg.adapter.y / leg.ankle.y);
+    let roll = 0;
+
+    if (isPros) {
+      // The socket, adapters and pylon are ONE rigid piece. The bend at the proximal
+      // adapter (fa.lp) is fixed, so the whole piece simply tilts as the leg moves.
+      const T = leg.knee.y;                       // thigh height
+      const Ls = leg.adapter.y - leg.knee.y;      // socket + adapter height
+      const Lp = leg.ankle.y - leg.adapter.y;     // pylon height
+      const tanD = (deg) => Math.tan(rad(deg));
+
+      // Planted foot: the foot sits flat, so the alignment sets the lean of the whole piece.
+      const axisStance = fa.stanceAxis;
+      // Swinging foot: the socket follows the thigh so the piece reaches the foot.
+      const axisSwing = Math.atan((footW - hipW - Lp * tanD(fa.lp)) / (T + Ls + Lp)) * 180 / Math.PI;
+
+      const axis = load * axisStance + (1 - load) * axisSwing;    // socket lean (+ = foot end lateral)
+      const pylonAxis = axis + fa.lp;
+
+      adapterW = footW - Lp * tanD(pylonAxis);
+      kneeW = adapterW - Ls * tanD(axis);
+      roll = pylonAxis - fa.ld;                   // zero when planted flat, shows in swing
+    }
+
+    return {
+      hipW, footW, kneeW, adapterW, roll,
+      adapterY: dy + leg.adapter.y,
+      hipY: dy,
+      kneeY: dy + leg.knee.y,
+      ankleY: dy + leg.ankle.y,
+      soleY: dy + leg.lowest,
+      fs: 1 + F.depthGain * leg.ankle.x * depthSign,
+      leg
+    };
+  };
+
+  const pros = make(sag.pros, 1, true, dyPros, p);
+  const bio = make(sag.bio, -1, false, -dyPros, (p + 0.5) % 1);
+  const hipY0 = (GROUND_Y - 2) - Math.max(pros.soleY, bio.soleY);
+
+  return { pros, bio, hipY0, shift, sway, bs, footHalf };
+}
+
+// A foot seen end-on: a wedge from the ankle down to a sole line.
+function frontalFoot(ankle, soleY, hw, rollScreen, outline, fill) {
+  const s = Math.sin(rad(rollScreen));
+  const lift = hw * Math.abs(s);
+  const yR = soleY - lift + hw * s;
+  const yL = soleY - lift - hw * s;
+  return `<polygon points="${(ankle.x - hw).toFixed(1)},${yL.toFixed(1)}
+    ${(ankle.x + hw).toFixed(1)},${yR.toFixed(1)} ${ankle.x.toFixed(1)},${ankle.y.toFixed(1)}"
+    fill="${fill}" stroke="${outline}" stroke-width="4" stroke-linejoin="round"/>`;
+}
+
+function drawFrontal() {
+  const p = phase;
+  const deviation = activeDeviation();
+  const f = frontalPose(p, deviation);
+
+  const cx = 310;
+  const L = viewSign() * sideSign();      // screen direction of the prosthetic leg's lateral side
+  const X = (w) => cx + L * w;
+  const Y = (rel) => f.hipY0 + rel;
+
+  let d = "";
+
+  // Dashed line of progression, so the pelvis sway is easy to see.
+  d += `<line x1="${cx}" y1="40" x2="${cx}" y2="${GROUND_Y}" stroke="#c7ced6"
+    stroke-width="1.5" stroke-dasharray="5 6"/>`;
+
+  // Biological leg.
+  const hB = { x: X(f.bio.hipW), y: Y(f.bio.hipY) };
+  const kB = { x: X(f.bio.kneeW), y: Y(f.bio.kneeY) };
+  const aB = { x: X(f.bio.footW), y: Y(f.bio.ankleY) };
+  d += line(hB.x, hB.y, kB.x, kB.y, "#66717c", 8);
+  d += line(kB.x, kB.y, aB.x, aB.y, "#66717c", 7);
+  d += frontalFoot(aB, Y(f.bio.soleY), FRONTAL.footWidth / 2 * f.bio.fs, 0, "#66717c", "#eef0f2");
+  d += joint(kB.x, kB.y, 5, "#fff", "#66717c");
+  d += joint(aB.x, aB.y, 4, "#fff", "#66717c");
+
+  // Prosthetic leg.
+  const hP = { x: X(f.pros.hipW), y: Y(f.pros.hipY) };
+  const kP = { x: X(f.pros.kneeW), y: Y(f.pros.kneeY) };
+  const aP = { x: X(f.pros.footW), y: Y(f.pros.ankleY) };
+  const P1 = { x: X(f.pros.adapterW), y: Y(f.pros.adapterY) };
+  const su = unitVec(kP, P1);
+  const scale = Math.max(0.35, Math.min(1, (P1.y - kP.y) / BODY.adapterAt));
+
+  d += line(hP.x, hP.y, kP.x, kP.y, "#4b5563", 10);
+  d += drawProsthesis({ K: kP, P1, A: aP, su, scale, pressure: f.bs.ml * L });
+  d += frontalFoot(aP, Y(f.pros.soleY), FRONTAL.footWidth / 2 * f.pros.fs,
+                   f.pros.roll * L, "#2563eb", "#dbeafe");
+  d += joint(kP.x, kP.y, 5, "#fff", "#4b5563");
+  d += joint(aP.x, aP.y, 4, "#dbeafe", "#2563eb");
+
+  // Pelvis (tilts as the swing-side hip drops).
+  const pelvisAngle = Math.atan2(hP.y - hB.y, hP.x - hB.x) * 180 / Math.PI;
+  const pc = { x: (hP.x + hB.x) / 2, y: (hP.y + hB.y) / 2 };
+  d += `<ellipse cx="${pc.x.toFixed(1)}" cy="${pc.y.toFixed(1)}" rx="30" ry="9"
+    fill="#e8efff" stroke="#20252b" stroke-width="3"
+    transform="rotate(${pelvisAngle.toFixed(1)} ${pc.x.toFixed(1)} ${pc.y.toFixed(1)})"/>`;
+  d += joint(hB.x, hB.y, 4, "#fff", "#20252b");
+  d += joint(hP.x, hP.y, 4, "#fff", "#20252b");
+
+  // Trunk leans a little toward the stance leg.
+  const lean = FRONTAL.trunkLeanDeg * f.sway * L;
+  const tx = X(f.shift), ty = f.hipY0;
+  d += `<g transform="rotate(${lean.toFixed(2)} ${tx.toFixed(1)} ${ty.toFixed(1)})">`;
+  d += line(tx, ty - 8, tx, ty - 70, "#20252b", 10);
+  d += oval(tx, ty - 95, 25, 34);
+  d += line(tx - 32, ty - 116, tx + 32, ty - 116, "#20252b", 6);
+  d += line(tx, ty - 130, tx, ty - 132, "#20252b", 5);
+  d += `<circle cx="${tx.toFixed(1)}" cy="${ty - 152}" r="19" fill="#fff" stroke="#20252b" stroke-width="3"/>`;
+  if (viewFrom === "front") {
+    d += `<circle cx="${(tx - 6.5).toFixed(1)}" cy="${ty - 155}" r="2" fill="#20252b"/>
+          <circle cx="${(tx + 6.5).toFixed(1)}" cy="${ty - 155}" r="2" fill="#20252b"/>`;
+  } else {
+    d += `<path d="M ${(tx - 17).toFixed(1)} ${ty - 154} A 18 18 0 0 1 ${(tx + 17).toFixed(1)} ${ty - 154}
+      Q ${tx.toFixed(1)} ${ty - 138} ${(tx - 17).toFixed(1)} ${ty - 154} Z" fill="#6b7280"/>`;
+  }
+  d += `</g>`;
+
+  // Base-of-support measurement line under the feet.
+  const bosY = GROUND_Y + 16;
+  const x1 = X(f.pros.footW), x2 = X(f.bio.footW);
+  const cm = Math.abs(f.pros.footW - f.bio.footW) / FRONTAL.pxPerCm;
+  d += `<line x1="${x1.toFixed(1)}" y1="${bosY}" x2="${x2.toFixed(1)}" y2="${bosY}" stroke="#7b8590" stroke-width="1.5"/>
+    <line x1="${x1.toFixed(1)}" y1="${bosY - 4}" x2="${x1.toFixed(1)}" y2="${bosY + 4}" stroke="#7b8590" stroke-width="1.5"/>
+    <line x1="${x2.toFixed(1)}" y1="${bosY - 4}" x2="${x2.toFixed(1)}" y2="${bosY + 4}" stroke="#7b8590" stroke-width="1.5"/>
+    <text x="${cx}" y="${bosY + 16}" text-anchor="middle" font-size="11" fill="#68727d"
+      font-family="Arial, sans-serif">base of support ≈ ${cm.toFixed(0)} cm</text>`;
+
+  // Side labels.
+  const sideName = prosSide === "right" ? "RIGHT" : "LEFT";
+  const otherName = prosSide === "right" ? "LEFT" : "RIGHT";
+  d += `<text x="${X(120)}" y="${GROUND_Y + 36}" text-anchor="middle" font-size="12" font-weight="700"
+    fill="#2563eb" font-family="Arial, sans-serif">${sideName} · prosthesis</text>
+    <text x="${X(-120)}" y="${GROUND_Y + 36}" text-anchor="middle" font-size="12" font-weight="700"
+    fill="#66717c" font-family="Arial, sans-serif">${otherName}</text>`;
+
+  figure.innerHTML = d;
+}
+
+/* =============================================================
+   PART 8B — EXTRA TOP-DOWN INSETS
+   ============================================================= */
+
+const planDrawing = document.getElementById("planDrawing");
+
+// Plan view: footprints and the pelvis path, forward is up.
+function drawPlanView() {
+  const deviation = activeDeviation();
+  const q = completedCycles + phase;
+  const now = distanceAtAbs(q, deviation);
+  const f = frontalPose(phase, deviation);
+
+  const cxp = 150, cyp = 95, kx = 3, ky = 0.22;
+  const S = sideSign();
+  const px = (w) => cxp + S * kx * w;
+  const py = (world) => cyp - (world - now) * ky;
+  const half = footHalfFor(deviation);
+
+  let m = `<line x1="${cxp}" y1="22" x2="${cxp}" y2="204" stroke="#d3d9df" stroke-width="1.5" stroke-dasharray="5 6"/>`;
+
+  // Pelvis path.
+  let path = "";
+  for (let t = q - 1.6; t <= q + 0.001; t += 0.04) {
+    const w = FRONTAL.sway * Math.sin(2 * Math.PI * (t - 0.06));
+    path += `${path ? "L" : "M"}${px(w).toFixed(1)},${py(distanceAtAbs(t, deviation)).toFixed(1)} `;
+  }
+  m += `<path d="${path}" fill="none" stroke="#9aa5b1" stroke-width="2"/>`;
+
+  // Footprints left where each heel struck the floor.
+  // (+18 moves the mark from the heel toward the middle of the foot)
+  const prosIC = sagittalPose(0, deviation).pros.heel.x + 9 + 18;
+  const bioIC = sagittalPose(0.5, deviation).bio.heel.x - 9 + 18;
+  for (let k = Math.floor(q) - 3; k <= Math.floor(q) + 1; k++) {
+    for (const [t, sign, rel, color] of [[k, 1, prosIC, "#2563eb"], [k + 0.5, -1, bioIC, "#66717c"]]) {
+      if (t > q) continue;
+      const y = py(distanceAtAbs(t, deviation) + rel);
+      if (y < 24 || y > 204) continue;
+      const age = Math.max(0.2, 1 - (q - t) / 1.8);
+      m += `<ellipse cx="${px(sign * half).toFixed(1)}" cy="${y.toFixed(1)}" rx="6.5" ry="14"
+        fill="${color}" opacity="${(0.55 * age).toFixed(2)}"/>`;
+    }
+  }
+
+  // Live feet: solid when on the floor, outlined while swinging.
+  const ground = Math.max(f.pros.soleY, f.bio.soleY);
+  for (const [leg, sign, ox, color] of [[f.pros, 1, 9, "#2563eb"], [f.bio, -1, -9, "#66717c"]]) {
+    const centre = (leg.leg.heel.x + leg.leg.toe.x) / 2 + ox;
+    const planted = leg.soleY >= ground - 1.5;
+    m += `<ellipse cx="${px(leg.footW).toFixed(1)}" cy="${(cyp - centre * ky).toFixed(1)}" rx="6.5" ry="14"
+      fill="${planted ? color : "none"}" stroke="${color}" stroke-width="2"
+      ${planted ? "" : 'stroke-dasharray="3 3"'}/>`;
+  }
+
+  // Pelvis marker.
+  m += `<line x1="${px(f.bio.hipW).toFixed(1)}" y1="${cyp}" x2="${px(f.pros.hipW).toFixed(1)}" y2="${cyp}"
+    stroke="#20252b" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="${px(f.shift).toFixed(1)}" cy="${cyp}" r="4.5" fill="#fff" stroke="#20252b" stroke-width="2"/>`;
+
+  const tag = (txt, x, color) => `<text x="${x}" y="16" text-anchor="middle" font-size="11" font-weight="700"
+    fill="${color}" font-family="Arial, sans-serif">${txt}</text>`;
+  const prosLabelX = S > 0 ? 230 : 70;
+  m += tag(prosSide.toUpperCase() + " · prosthesis", prosLabelX, "#2563eb");
+  m += tag(prosSide === "right" ? "LEFT" : "RIGHT", 300 - prosLabelX, "#66717c");
+  m += `<text x="8" y="204" font-size="10" fill="#8a949e" font-family="Arial, sans-serif">↑ forward</text>`;
+
+  planDrawing.innerHTML = m;
+}
+
+/* =============================================================
+   PART 8C — CHOOSE WHICH VIEW TO DRAW
+   ============================================================= */
+
+function drawFigure() {
+  if (plane === "sagittal") drawSagittal();
+  else drawFrontal();
+
+  if (plane === "frontal") drawPlanView();
+}
+
+/* =============================================================
+   PART 9 — SCREW PANEL
+
+   The pylon is drawn in the middle with a proximal adapter at the top and a
+   distal adapter at the bottom. Each adapter shows the two screws you would
+   see from the current view, one on each side. Beside each screw are two
+   buttons: clockwise (tighten) and counter-clockwise (loosen).
+
+   Each screw sits between -10 (loosened) and +10 (tightened) quarter-turns
+   relative to snug. The screw head moves in and out as it is turned.
+   ============================================================= */
+
+const screwSvg = document.getElementById("screwSvg");
+let lastScrewFocus = null;     // keeps keyboard focus on the same button after a redraw
+
+function nudgeScrew(key, direction) {
+  // Opposite screws on the same adapter are a matched pair:
+  // proximal medial <-> proximal lateral, etc.
+  const oppositeScrew = {
+    proximalMedial: "proximalLateral",
+    proximalLateral: "proximalMedial",
+    distalMedial: "distalLateral",
+    distalLateral: "distalMedial",
+    proximalAnterior: "proximalPosterior",
+    proximalPosterior: "proximalAnterior",
+    distalAnterior: "distalPosterior",
+    distalPosterior: "distalAnterior"
+  };
+
+  const partner = oppositeScrew[key];
+  if (!partner) return;
+
+  // Move both screws by the same number of turns in opposite directions.
+  // If either screw reaches its limit, stop the paired adjustment so the
+  // equal-and-opposite relationship is preserved.
+  const nextValue = screwValues[key] + direction;
+  const partnerNextValue = screwValues[partner] - direction;
+
+  if (nextValue < -SCREW_MAX || nextValue > SCREW_MAX ||
+      partnerNextValue < -SCREW_MAX || partnerNextValue > SCREW_MAX) {
+    return;
+  }
+
+  screwValues[key] = nextValue;
+  screwValues[partner] = partnerNextValue;
+
+  drawScrewDiagram();
+  drawFigure();
+}
+
+// A round arrow button. direction +1 = clockwise (tighten), -1 = counter-clockwise (loosen).
+function screwButton(cx, cy, key, direction, disabled, name) {
+  const r = 7.5;
+  const a0 = direction > 0 ? -150 : -30;
+  const a1 = direction > 0 ? 95 : -275;
+
+  let path = "";
+  const steps = 18;
+  for (let i = 0; i <= steps; i++) {
+    const a = rad(a0 + (a1 - a0) * i / steps);
+    path += `${i ? "L" : "M"}${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)} `;
+  }
+
+  // Arrowhead at the end of the arc, pointing along the direction of travel.
+  const end = rad(a1);
+  const tx = -Math.sin(end) * direction, ty = Math.cos(end) * direction;
+  const ex = cx + r * Math.cos(end), ey = cy + r * Math.sin(end);
+  const head = [
+    [ex + tx * 5, ey + ty * 5],
+    [ex - ty * 3.6, ey + tx * 3.6],
+    [ex + ty * 3.6, ey - tx * 3.6]
+  ].map((q) => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ");
+
+  const label = (direction > 0 ? "Tighten " : "Loosen ") + name + " screw (" +
+                (direction > 0 ? "clockwise" : "counter-clockwise") + ")";
+  const color = direction > 0 ? "#2563eb" : "#4b5563";
+
+  return `<g class="svgbtn${disabled ? " off" : ""}" role="button" tabindex="${disabled ? -1 : 0}"
+      aria-label="${label}" aria-disabled="${disabled}" data-key="${key}" data-dir="${direction}">
+      <title>${label}</title>
+      <circle cx="${cx}" cy="${cy}" r="16" fill="${direction > 0 ? "#dbeafe" : "#fff"}" stroke="${color}" stroke-width="2"/>
+      <path d="${path}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
+      <polygon points="${head}" fill="${color}"/>
+    </g>`;
+}
+
+function drawScrewDiagram() {
+  // Which two screws are visible depends on the view, and on which side of the screen they sit.
+  let leftName, rightName;
+  if (plane === "sagittal") {
+    leftName = prosSide === "right" ? "Posterior" : "Anterior";   // the figure faces right for a right-side prosthesis
+    rightName = prosSide === "right" ? "Anterior" : "Posterior";
+  } else {
+    const lateralOnRight = viewSign() * sideSign() > 0;
+    leftName = lateralOnRight ? "Medial" : "Lateral";
+    rightName = lateralOnRight ? "Lateral" : "Medial";
+  }
+
+  const pylonX = 170;
+  const rows = [
+    { adapter: "proximal", y: 48 },
+    { adapter: "distal", y: 348 }
+  ];
+
+  let m = "";
+
+  rows.forEach((row) => {
+    [["left", leftName], ["right", rightName]].forEach(([side, name]) => {
+      const key = row.adapter + name;
+      const value = screwValues[key];
+      const dir = side === "left" ? -1 : 1;
+
+      // Edge of the flared collar at this height, then the screw sticking out of it.
+      const edge = pylonX + dir * 38;
+      const exposed = 16 - value * 0.9;                 // looser = sticks out further
+      const headX = edge + dir * exposed;
+      const x1 = Math.min(edge, headX), x2 = Math.max(edge, headX);
+
+      m += `<rect x="${x1.toFixed(1)}" y="${row.y - 4.5}" width="${(x2 - x1).toFixed(1)}" height="9"
+          fill="#9aa2aa" stroke="#4b535b" stroke-width="1"/>`;
+      for (let t = 1; t < exposed; t += 3) {            // thread lines
+        const tx = edge + dir * t;
+        m += `<line x1="${tx.toFixed(1)}" y1="${row.y - 4.5}" x2="${tx.toFixed(1)}" y2="${row.y + 4.5}"
+          stroke="#4b535b" stroke-width="0.8"/>`;
+      }
+      m += `<rect x="${(headX - (dir > 0 ? 0 : 12)).toFixed(1)}" y="${row.y - 11}" width="12" height="22" rx="3"
+          fill="#c9ced3" stroke="#4b535b" stroke-width="1.5"/>
+        <line x1="${(headX + dir * 6).toFixed(1)}" y1="${row.y - 5}" x2="${(headX + dir * 6).toFixed(1)}" y2="${row.y + 5}"
+          stroke="#4b535b" stroke-width="2"/>`;
+
+      // Buttons: tighten sits next to the screw, loosen is outside it.
+      const innerX = side === "left" ? 66 : 274;
+      const outerX = side === "left" ? 26 : 314;
+      m += screwButton(innerX, row.y, key, +1, value >= SCREW_MAX, name);
+      m += screwButton(outerX, row.y, key, -1, value <= -SCREW_MAX, name);
+
+      // Label and turn count above the buttons.
+      const shown = value === 0 ? "snug" : (value > 0 ? "+" : "") + value;
+      m += `<text x="${(innerX + outerX) / 2}" y="${row.y - 24}" text-anchor="middle" font-size="12" font-weight="700"
+          fill="#2563eb" font-family="Arial, sans-serif">${name}</text>
+        <text x="${(innerX + outerX) / 2}" y="${row.y + 32}" text-anchor="middle" font-size="11"
+          fill="#68727d" font-family="Arial, sans-serif">${shown}</text>`;
+    });
+  });
+
+  screwDrawing.innerHTML = m;
+
+  // Put keyboard focus back where it was.
+  if (lastScrewFocus) {
+    const again = screwDrawing.querySelector(
+      `[data-key="${lastScrewFocus.key}"][data-dir="${lastScrewFocus.dir}"]`);
+    if (again && document.activeElement !== again) again.focus({ preventScroll: true });
+  }
+
+  screwHelp.textContent = plane === "sagittal"
+    ? "Sagittal view: the anterior and posterior screws are shown."
+    : "Frontal view: the medial and lateral screws are shown.";
+}
+
+function handleScrewPress(event) {
+  const button = event.target.closest(".svgbtn");
+  if (!button || button.classList.contains("off")) return;
+  const key = button.dataset.key, dir = Number(button.dataset.dir);
+  lastScrewFocus = (event.type === "keydown") ? { key, dir } : null;
+  nudgeScrew(key, dir);
+}
+
+screwSvg.addEventListener("click", handleScrewPress);
+screwSvg.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    handleScrewPress(event);
+  }
+});
+
+/* =============================================================
+   PART 10 — PHASE LABELS AND USER CONTROLS
+   ============================================================= */
+
+function getPeriodName(p) {
+  for (const period of GAIT_PERIODS) {
+    if (p >= period.start && p < period.end) return period.name;
+  }
+  return "Initial double-limb support";
+}
+
+function updateReadout() {
+  phaseText.textContent = getPeriodName(phase);
+  percentText.textContent = Math.round(phase * 100) + "%";
+  phaseSlider.value = Math.round(phase * 100);
+}
+
+playButton.addEventListener("click", () => {
+  isPlaying = !isPlaying;
+  playButton.textContent = isPlaying ? "Pause" : "Play";
+  previousFrameTime = null;
+});
+
+document.getElementById("resetButton").addEventListener("click", () => {
+  phase = 0;
+  completedCycles = 0;
+  updateReadout();
+  drawFigure();
+});
+
+document.getElementById("neutralButton").addEventListener("click", () => {
+  Object.keys(screwValues).forEach(key => screwValues[key] = 0);
+  drawScrewDiagram();
+  drawFigure();
+});
+
+speedSlider.addEventListener("input", () => {
+  walkingSpeed = Number(speedSlider.value);
+  speedValue.textContent = walkingSpeed.toFixed(1) + "×";
+});
+
+phaseSlider.addEventListener("input", () => {
+  phase = Number(phaseSlider.value) / 100;
+  drawFigure();
+  updateReadout();
+});
+
+deviationSelect.addEventListener("change", () => {
+  clearStudyChallenge();
+  drawFigure();
+});
+
+// Randomly select from the currently visible plane's deviations.
+// Keep the dropdown showing "Neutral / normal gait" so the answer is concealed.
+randomDeviationButton.addEventListener("click", () => {
+  const visibleGroup = Array.from(deviationSelect.querySelectorAll("optgroup"))
+    .find(group => !group.hidden && !group.disabled);
+
+  if (!visibleGroup) return;
+
+  const options = Array.from(visibleGroup.querySelectorAll("option"))
+    .filter(option => option.value !== "normal");
+
+  if (options.length === 0) return;
+
+  const chosen = options[Math.floor(Math.random() * options.length)];
+  hiddenChallenge = chosen.value;
+  challengeRevealed = false;
+
+  deviationSelect.value = "normal";
+  revealDeviationButton.disabled = false;
+  revealDeviationButton.textContent = "Reveal";
+  studyStatus.textContent = "Mystery deviation selected. Observe the gait, then reveal the answer.";
+  drawFigure();
+});
+
+resetNormalButton.addEventListener("click", () => {
+  // Remove any randomized challenge.
+  hiddenChallenge = null;
+  challengeRevealed = false;
+
+  // Return the ordinary preset dropdown to Neutral / normal gait.
+  deviationSelect.value = "normal";
+
+  // Reset the study-mode interface and redraw the neutral animation.
+  revealDeviationButton.disabled = true;
+  revealDeviationButton.textContent = "Reveal";
+  studyStatus.textContent = "Normal gait restored. Ready for another study challenge.";
+  drawFigure();
+});
+
+revealDeviationButton.addEventListener("click", () => {
+  if (!hiddenChallenge) return;
+
+  challengeRevealed = !challengeRevealed;
+  const answerOption = Array.from(deviationSelect.options)
+    .find(option => option.value === hiddenChallenge);
+
+  if (challengeRevealed) {
+    studyStatus.textContent = "Answer: " + (answerOption ? answerOption.textContent : hiddenChallenge);
+    revealDeviationButton.textContent = "Hide answer";
+  } else {
+    studyStatus.textContent = "Mystery deviation selected. Observe the gait, then reveal the answer.";
+    revealDeviationButton.textContent = "Reveal";
+  }
+});
+
+// Only offer presets that belong to the view being shown.
+function filterPresets() {
+  deviationSelect.querySelectorAll("optgroup").forEach((group) => {
+    const matches = group.label.toLowerCase().startsWith(plane);
+    group.hidden = !matches;
+    group.disabled = !matches;
+  });
+
+  const chosen = deviationSelect.selectedOptions[0];
+  if (chosen && chosen.parentElement.tagName === "OPTGROUP" && chosen.parentElement.disabled) {
+    deviationSelect.value = "normal";
+  }
+}
+
+function setPlane(newPlane) {
+  plane = newPlane;
+  clearStudyChallenge();
+
+  document.getElementById("sagittalButton").classList.toggle("selected", plane === "sagittal");
+  document.getElementById("frontalButton").classList.toggle("selected", plane === "frontal");
+
+  document.getElementById("viewFromGroup").hidden = plane !== "frontal";
+  document.getElementById("planCard").hidden = plane !== "frontal";
+  document.getElementById("insetRow").hidden = plane !== "frontal";
+
+  updateViewTitle();
+  filterPresets();
+  drawScrewDiagram();
+  drawFigure();
+}
+
+function updateViewTitle() {
+  const sideWord = prosSide === "right" ? "right" : "left";
+  document.getElementById("viewTitle").textContent = plane === "sagittal"
+    ? `Sagittal view · ${sideWord} side`
+    : `Frontal view · from ${viewFrom === "back" ? "behind" : "in front"}`;
+}
+
+function setSide(side) {
+  prosSide = side;
+  document.getElementById("rightSideButton").classList.toggle("selected", side === "right");
+  document.getElementById("leftSideButton").classList.toggle("selected", side === "left");
+  updateViewTitle();
+  drawScrewDiagram();
+  drawFigure();
+}
+
+function setViewFrom(view) {
+  viewFrom = view;
+  document.getElementById("backViewButton").classList.toggle("selected", view === "back");
+  document.getElementById("frontViewButton").classList.toggle("selected", view === "front");
+  updateViewTitle();
+  drawScrewDiagram();
+  drawFigure();
+}
+
+document.getElementById("sagittalButton").addEventListener("click", () => setPlane("sagittal"));
+document.getElementById("frontalButton").addEventListener("click", () => setPlane("frontal"));
+document.getElementById("rightSideButton").addEventListener("click", () => setSide("right"));
+document.getElementById("leftSideButton").addEventListener("click", () => setSide("left"));
+document.getElementById("backViewButton").addEventListener("click", () => setViewFrom("back"));
+document.getElementById("frontViewButton").addEventListener("click", () => setViewFrom("front"));
+
+/* =============================================================
+   PART 11 — ANIMATION LOOP
+
+   The phase advances through 100% of the cycle. The PDF timing
+   defines when the limb is in stance and swing; walkingSpeed only
+   changes how quickly the animation runs, not the phase percentages.
+   ============================================================= */
+
+function animate(timestamp) {
+  if (previousFrameTime === null) previousFrameTime = timestamp;
+
+  const elapsedSeconds = (timestamp - previousFrameTime) / 1000;
+  previousFrameTime = timestamp;
+
+  if (isPlaying) {
+    // At speed 1.0, one complete gait cycle takes CYCLE_SECONDS (see PART 1B).
+    phase += elapsedSeconds * walkingSpeed / CYCLE_SECONDS;
+
+    // Keep phase in the 0-to-1 range, counting each completed cycle.
+    while (phase >= 1) { phase -= 1; completedCycles++; }
+
+    updateReadout();
+    drawFigure();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+/* =============================================================
+   PART 12 — INITIAL PAGE SETUP
+   ============================================================= */
+
+filterPresets();
+updateViewTitle();
+drawScrewDiagram();
+drawFigure();
+updateReadout();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
