@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Transtibial Gait Lab — Version 3.3</title>
+  <title>Transtibial Gait Lab — Version 3.6</title>
   <style>
     /* ---------------------------------------------------------
        PAGE STYLE
@@ -133,6 +133,7 @@
       font-size: 11px;
       line-height: 1.45;
     }
+    .preset-note { margin-bottom: 18px; }
     .footer { margin-top: 14px; font-size: 11px; color: var(--muted); }
 
     @media (max-width: 950px) {
@@ -162,17 +163,33 @@
       <h1>Transtibial Gait Lab</h1>
       <p>Interactive gait-cycle and prosthetic-alignment learning tool</p>
     </div>
-    <p>Version 3.3 · paired screws + study mode</p>
+    <p>Version 3.6 · tab updates</p>
   </header>
 
   <main class="layout">
-    <!-- LEFT PANEL: view, deviation preset, and playback controls -->
+    <!-- LEFT PANEL: gait settings and playback controls -->
     <section class="panel">
       <h2>Gait settings</h2>
 
       <div class="switch">
         <button id="sagittalButton" class="selected" type="button">Sagittal</button>
         <button id="frontalButton" type="button">Frontal</button>
+      </div>
+
+      <div class="group" id="viewFromGroup" hidden>
+        <label>Frontal view from</label>
+        <div class="switch" style="margin-bottom:0;">
+          <button id="backViewButton" class="selected" type="button">Behind</button>
+          <button id="frontViewButton" type="button">In front</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Prosthesis side</label>
+        <div class="switch" style="margin-bottom:0;">
+          <button id="rightSideButton" class="selected" type="button">Right</button>
+          <button id="leftSideButton" type="button">Left</button>
+        </div>
       </div>
 
       <div class="group">
@@ -203,6 +220,10 @@
         </select>
       </div>
 
+      <div class="note preset-note">
+        Choose a preset to exaggerate a movement.
+      </div>
+
       <!-- Study mode: randomize a deviation without showing its name. -->
       <div class="group" id="studyModeGroup">
         <div class="button-row">
@@ -212,22 +233,6 @@
         </div>
         <div class="note" id="studyStatus" aria-live="polite">
           Choose a plane, then randomize to quiz yourself.
-        </div>
-      </div>
-
-      <div class="group">
-        <label>Prosthesis side</label>
-        <div class="switch" style="margin-bottom:0;">
-          <button id="rightSideButton" class="selected" type="button">Right</button>
-          <button id="leftSideButton" type="button">Left</button>
-        </div>
-      </div>
-
-      <div class="group" id="viewFromGroup" hidden>
-        <label>Frontal view from</label>
-        <div class="switch" style="margin-bottom:0;">
-          <button id="backViewButton" class="selected" type="button">Behind</button>
-          <button id="frontViewButton" type="button">In front</button>
         </div>
       </div>
 
@@ -242,9 +247,6 @@
         <div class="range-title"><span>Animation speed</span><output id="speedValue">1.0×</output></div>
       </div>
 
-      <div class="note">
-        Choose a preset to exaggerate a movement.
-      </div>
     </section>
 
     <!-- CENTRE PANEL: stick figure and gait-cycle timeline -->
@@ -349,10 +351,14 @@
 
       <div class="note">
         Press <strong>↻</strong> to tighten a screw (clockwise) or <strong>↺</strong> to
-        loosen it (counter-clockwise). Each screw pushes the pyramid it presses on away
-        from its own side. At the proximal adapter that is the socket; at the distal
-        adapter it is the foot. Tighten one screw and loosen its partner to tilt the
-        adapter.
+        loosen it (counter-clockwise). the tightened screw will close the angle between its proximal and distal points.At the proximal adapter that is the socket; at the distal
+        adapter it is the foot. 
+        <br><br>
+        <!--<strong>Foot dorsiflexion:</strong> in the sagittal view the distal screws set how far
+        the foot is dorsiflexed (tighten the anterior screw for toes up, the posterior screw
+        for toes down). A prosthetic foot can only dorsiflex a further 15° beyond that
+        setting. Past that, and whenever the setting forces the shank to lean differently, the
+        change is passed up to the knee and hip.-->
       </div>
     </section>
   </main>
@@ -361,6 +367,11 @@
     Source for gait-cycle timing: Chambers HG, Sutherland DH. A Practical Guide to Gait Analysis.
     Journal of the American Academy of Orthopaedic Surgeons. 2002;10:222–231.
     This is a simplified educational animation, not a patient-specific model.
+    Ankle range and compensation model informed by: Heitzmann DWW et al., Gait Posture
+    2018;64:174–180; Wagner J et al., Clin Prosthet Orthot 1987;11(1):55–62; Blumentritt S et al.,
+    Prosthet Orthot Int 1999;23:231–238; Blumentritt S, Schmalz T, Jarasch R, Orthopäde
+    2001;30:161–168; Major MJ et al., Clin Biomech 2014;29:98–104; Atlas of Limb Prosthetics,
+    ch. 14; Perry J, Gait Analysis, 1992.
   </p>
 
 <script>
@@ -439,7 +450,10 @@ const GAIT_PERIODS = [
    curves, so these values are illustrative. They were fitted so that the
    heel actually meets the floor at initial contact, both feet touch down
    together in double support, the swing toe clears the floor, and the
-   planted foot does not slide.
+   planted foot does not slide. The ankle angle these curves imply (foot
+   angle minus shank angle) is also kept under about 12 degrees at every point,
+   inside the normal 8-10 degree peak and the 15 degree prosthetic limit, so
+   normal walking needs no compensation (see ANKLE below).
    ============================================================= */
 
 // How long one full gait cycle takes at walking-speed 1.0×.
@@ -465,20 +479,79 @@ const BODY = {
 
 const CURVES = {
   hip: [
-    [0.00, 26], [0.12, 23], [0.30, 1],  [0.52, -15],
-    [0.62, -7], [0.73, 14], [0.85, 29], [0.93, 31]
+    [0.00, 23], [0.12, 17], [0.30, -3], [0.52, -19],
+    [0.62, -6], [0.73, 17], [0.85, 31], [0.93, 28]
   ],
   knee: [
-    [0.00, 4],  [0.14, 14], [0.35, 4],  [0.50, 15],
-    [0.62, 45], [0.73, 66], [0.85, 28], [0.95, 6]
+    [0.00, 9],  [0.14, 10], [0.35, -1], [0.50, 10],
+    [0.62, 45], [0.73, 66], [0.85, 33], [0.95, 11]
   ],
   foot: [
-    [0.00, 24],  [0.04, 20],  [0.08, 7],   [0.12, 0],
-    [0.38, 0],   [0.50, -3],  [0.56, -27], [0.62, -34],
-    [0.68, -28], [0.73, -24], [0.80, -5],  [0.85, 2],
-    [0.92, 15]
+    [0.00, 18],  [0.04, 14],  [0.08, 2],   [0.12, 0],
+    [0.38, 0],   [0.50, -17], [0.56, -34], [0.62, -42],
+    [0.68, -43], [0.73, -40], [0.80, -11], [0.85, 9],
+    [0.92, 9]
   ]
 };
+
+/* -------------------------------------------------------------
+   ANKLE LIMIT AND "UP THE CHAIN" COMPENSATION (prosthetic side)
+
+   A prosthetic foot has no ankle joint. It can only deflect a limited
+   amount, so the shank cannot keep tipping forward over a planted foot
+   forever. The most it can dorsiflex beyond the angle it is SET at is
+   dfRange. The foot's set angle comes from the distal anterior/posterior
+   screws, so the limit is always "dfRange + screw adjustment".
+
+   When the walking curves ask the ankle for more than that, or when a
+   screw changes the angle the shank must sit at, the difference cannot
+   disappear. It is passed UP THE CHAIN to the knee and hip, because the
+   planted foot is fixed to the floor.
+
+   Evidence behind the numbers and the direction of the effects. Papers
+   marked (read) were opened and checked; the last one is second-hand.
+   - Effective ankle motion of a conventional carbon-fibre energy-storing
+     foot was about 15 degrees, against about 32 degrees for a foot with a
+     multi-centre joint. (read, abstract)
+       Heitzmann DWW et al. Gait Posture 2018;64:174-180.
+   - Normal peak ankle dorsiflexion is 8-10 degrees before heel rise. A SACH
+     foot gave only about 11 degrees of relative motion in late stance and a
+     Flex-Foot about 20. (read)
+       Wagner J, Sienko S, Supan T, Barth D. Clin Prosthet Orthot
+       1987;11(1):55-62.
+   - A foot set in too much dorsiflexion needs extra knee flexion to reach the
+     floor after heel strike; too much plantarflexion prevents normal knee
+     flexion after heel strike. (read)
+       Atlas of Limb Prosthetics, chapter 14 (AAOS), oandplibrary.org/alp/chap14-01.
+   - More dorsiflexion moves the ground reaction force toward the back of the
+     knee (a flexion moment); more plantarflexion moves it forward (an
+     extension moment). Amputees compensate by rebalancing the upper body over
+     the centre of pressure. This was measured in STANDING. (read)
+       Blumentritt S, Schmalz T, Jarasch R, Schneider M. Prosthet Orthot Int
+       1999;23(3):231-238.
+   - While WALKING, sagittal alignment changes the knee's stance-phase motion
+     and maximum flexion in a clear, systematic way. (read, abstract)
+       Blumentritt S, Schmalz T, Jarasch R. Orthopade 2001;30:161-168.
+   - A lower dorsiflexion stiffness gives more prosthetic-side dorsiflexion
+     and easier tibial progression, so limiting dorsiflexion does the
+     opposite. (read, abstract)
+       Major MJ, Twiste M, Kenney LPJ, Howard D. Clin Biomech 2014;29:98-104.
+   - When the tibia cannot advance, the knee is driven back toward
+     hyperextension, with forward trunk lean or hip flexion. (second-hand:
+     seen only as a summary of Perry's table, not read directly)
+       Perry J. Gait Analysis: Normal and Pathological Function. 1992.
+
+   What is a modelling choice rather than a measurement: the 50/50 hip/knee
+   split (hipShare), keeping the pelvis roughly in place, and the sizes of the
+   effects, which are exaggerated a little so they can be seen.
+   ------------------------------------------------------------- */
+const ANKLE = {
+  dfRange: 15,       // degrees of dorsiflexion a prosthetic foot allows beyond its set angle
+  hipShare: 0.5,     // 0 = the knee takes all of the change, 1 = the hip is held in place
+  kneeMin: -5,       // the knee cannot hyperextend further than this
+  kneeMax: 90
+};
+
 
 /* =============================================================
    PART 1C — FRONTAL-PLANE PARAMETERS AND PROSTHESIS LOOK (EDIT THESE)
@@ -791,6 +864,51 @@ function footPitch(p, deviation) {
    planted foot still, so the stance foot does not skate along the ground.
    ============================================================= */
 
+// Keep the prosthetic ankle inside its range and pass anything left over up the chain.
+//   hip, knee   joint angles the walking curves (and any preset) ask for
+//   phi         foot angle against the floor the curves ask for (+ = toes up)
+//   proximal    pylon tilt set at the proximal adapter
+//   distal      foot dorsiflexion set at the distal adapter (+ = toes up)
+//   load        how much body weight the foot carries (0 = swinging, 1 = planted)
+//
+// Planted foot: the sole lies on the floor, so its angle is fixed and the SHANK has to
+// move instead. Swinging foot: nothing holds the foot, so it follows the shank.
+function resolveAnkle(hip, knee, phi, proximal, distal, load) {
+  const shank0 = hip - knee + proximal;          // shank angle the curves ask for
+  const demand = phi - shank0;                   // ankle dorsiflexion the curves ask for
+  const excess = Math.max(0, demand - ANKLE.dfRange);
+
+  // How far the shank angle is forced to change while the foot is planted
+  // (+ = shank leans forward LESS, - = leans forward MORE).
+  const shift = (excess - distal) * load;
+
+  // Swinging foot keeps its set angle and cannot dorsiflex past the limit.
+  const footDeg = phi + (distal - excess) * (1 - load);
+
+  let h = hip, k = knee;
+  if (Math.abs(shift) > 1e-9) {
+    // Keep the pelvis roughly where it was: when the shank tips by `shift`,
+    // the thigh must tip the opposite way by about shift * (shank / thigh).
+    const r = Math.max(0.5, Math.min(1.5,
+      (BODY.shank * Math.cos(rad(shank0))) / (BODY.thigh * Math.cos(rad(hip)))));
+    h = hip - ANKLE.hipShare * r * shift;
+    k = h - (hip - knee) - shift;
+
+    // The knee has a range. If it runs out, the hip takes the rest.
+    if (k < ANKLE.kneeMin) { k = ANKLE.kneeMin; h = (hip - knee) + shift + k; }
+    if (k > ANKLE.kneeMax) { k = ANKLE.kneeMax; h = (hip - knee) + shift + k; }
+  }
+
+  const shankNow = h - k + proximal;
+  return {
+    hip: h, knee: k, footDeg,
+    df: footDeg - shankNow,            // dorsiflexion actually at the ankle now
+    limit: ANKLE.dfRange + distal,     // the most it is allowed to be
+    excess,
+    dHip: h - hip, dKnee: k - knee     // how much the knee and hip were pushed
+  };
+}
+
 // The prosthetic leg is the near/right leg; the biological leg is half a cycle behind.
 function sagittalPose(p, deviation) {
   const bioP = (p + 0.5) % 1;
@@ -804,16 +922,20 @@ function sagittalPose(p, deviation) {
   const base = { hip: curveAt(CURVES.hip, p), knee: curveAt(CURVES.knee, p) };
   const angles = applySagittalDeviation(base, p, deviation);
 
-  // Sagittal set screws: proximal tilts the pylon, distal tilts the foot.
+  // Sagittal set screws: proximal tilts the pylon, distal sets the foot's dorsiflexion.
   const k = SCREW_STEP_DEG * SCREW_DIRECTION;
   const proximalAngle = (screwValues.proximalAnterior - screwValues.proximalPosterior) * k;
   const distalAngle = (screwValues.distalAnterior - screwValues.distalPosterior) * k;
 
-  const pros = computeLeg(
-    angles.hip, angles.knee, footPitch(p, deviation) + distalAngle, proximalAngle
+  // The ankle can only dorsiflex so far; anything extra goes up to the knee and hip.
+  const ankle = resolveAnkle(
+    angles.hip, angles.knee, footPitch(p, deviation),
+    proximalAngle, distalAngle, prostheticLoad(p)
   );
 
-  return { bio, pros };
+  const pros = computeLeg(ankle.hip, ankle.knee, ankle.footDeg, proximalAngle);
+
+  return { bio, pros, ankle };
 }
 
 // How much body weight the prosthetic leg is carrying (0 to 1).
@@ -968,9 +1090,9 @@ function drawSagittal() {
   }
 
   // Viewing the left side means the person faces the other way.
-  figure.innerHTML = prosSide === "left"
+  figure.innerHTML = (prosSide === "left"
     ? `<g transform="translate(620 0) scale(-1 1)">${drawing}</g>`
-    : drawing;
+    : drawing);
 }
 
 /* =============================================================
