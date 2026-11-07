@@ -133,7 +133,6 @@
       font-size: 11px;
       line-height: 1.45;
     }
-    .preset-note { margin-bottom: 18px; }
     .footer { margin-top: 14px; font-size: 11px; color: var(--muted); }
 
     @media (max-width: 950px) {
@@ -163,11 +162,11 @@
       <h1>Transtibial Gait Lab</h1>
       <p>Interactive gait-cycle and prosthetic-alignment learning tool</p>
     </div>
-    <p>Version 3.6 · tab updates</p>
+    <p>Version 3.6 · preset audit</p>
   </header>
 
   <main class="layout">
-    <!-- LEFT PANEL: gait settings and playback controls -->
+    <!-- LEFT PANEL: view, deviation preset, and playback controls -->
     <section class="panel">
       <h2>Gait settings</h2>
 
@@ -176,33 +175,17 @@
         <button id="frontalButton" type="button">Frontal</button>
       </div>
 
-      <div class="group" id="viewFromGroup" hidden>
-        <label>Frontal view from</label>
-        <div class="switch" style="margin-bottom:0;">
-          <button id="backViewButton" class="selected" type="button">Behind</button>
-          <button id="frontViewButton" type="button">In front</button>
-        </div>
-      </div>
-
-      <div class="group">
-        <label>Prosthesis side</label>
-        <div class="switch" style="margin-bottom:0;">
-          <button id="rightSideButton" class="selected" type="button">Right</button>
-          <button id="leftSideButton" type="button">Left</button>
-        </div>
-      </div>
-
       <div class="group">
         <label for="deviationSelect">Gait deviation preset</label>
         <select id="deviationSelect">
           <option value="normal">Neutral / normal gait</option>
           <optgroup label="Sagittal plane">
-            <option value="heelCompression">Excessive heel compression</option>
-            <option value="hyperextensionIC">Knee hyperextension at initial contact</option>
-            <option value="flexedIC">Knee excessively flexed at initial contact</option>
-            <option value="abruptFlexion">Abrupt knee flexion</option>
+            <option value="heelCompression">Excessive heel compression (soft heel)</option>
+            <option value="hyperextensionIC">Knee hyperextension (insufficient knee flexion)</option>
+            <option value="flexedIC">Excessive knee flexion after heel strike</option>
+            <option value="abruptFlexion">Abrupt knee flexion (stiff heel)</option>
             <option value="earlyHeelRise">Early heel rise in midstance</option>
-            <option value="lateHeelOff">Late heel off in terminal stance</option>
+            <option value="lateHeelOff">Late heel off (delayed knee flexion)</option>
             <option value="dropOff">Drop-off in late stance</option>
           </optgroup>
           <optgroup label="Frontal plane">
@@ -220,10 +203,6 @@
         </select>
       </div>
 
-      <div class="note preset-note">
-        Choose a preset to exaggerate a movement.
-      </div>
-
       <!-- Study mode: randomize a deviation without showing its name. -->
       <div class="group" id="studyModeGroup">
         <div class="button-row">
@@ -233,6 +212,22 @@
         </div>
         <div class="note" id="studyStatus" aria-live="polite">
           Choose a plane, then randomize to quiz yourself.
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Prosthesis side</label>
+        <div class="switch" style="margin-bottom:0;">
+          <button id="rightSideButton" class="selected" type="button">Right</button>
+          <button id="leftSideButton" type="button">Left</button>
+        </div>
+      </div>
+
+      <div class="group" id="viewFromGroup" hidden>
+        <label>Frontal view from</label>
+        <div class="switch" style="margin-bottom:0;">
+          <button id="backViewButton" class="selected" type="button">Behind</button>
+          <button id="frontViewButton" type="button">In front</button>
         </div>
       </div>
 
@@ -247,6 +242,9 @@
         <div class="range-title"><span>Animation speed</span><output id="speedValue">1.0×</output></div>
       </div>
 
+      <div class="note" id="presetNote">
+        Choose a preset to exaggerate a movement.
+      </div>
     </section>
 
     <!-- CENTRE PANEL: stick figure and gait-cycle timeline -->
@@ -479,18 +477,18 @@ const BODY = {
 
 const CURVES = {
   hip: [
-    [0.00, 23], [0.12, 17], [0.30, -3], [0.52, -19],
-    [0.62, -6], [0.73, 17], [0.85, 31], [0.93, 28]
+    [0.00, 22], [0.12, 20], [0.30, -5], [0.52, -21],
+    [0.62, -6], [0.73, 19], [0.85, 31], [0.93, 27]
   ],
   knee: [
-    [0.00, 9],  [0.14, 10], [0.35, -1], [0.50, 10],
-    [0.62, 45], [0.73, 66], [0.85, 33], [0.95, 11]
+    [0.00, 5],  [0.14, 16], [0.35, -2], [0.50, 9],
+    [0.62, 47], [0.73, 68], [0.85, 32], [0.95, 15]
   ],
   foot: [
-    [0.00, 18],  [0.04, 14],  [0.08, 2],   [0.12, 0],
-    [0.38, 0],   [0.50, -17], [0.56, -34], [0.62, -42],
-    [0.68, -43], [0.73, -40], [0.80, -11], [0.85, 9],
-    [0.92, 9]
+    [0.00, 19],  [0.04, 17],  [0.08, 2],   [0.12, 0],
+    [0.38, 0],   [0.50, -18], [0.56, -38], [0.62, -43],
+    [0.68, -44], [0.73, -41], [0.80, -11], [0.85, 9],
+    [0.92, 19]
   ]
 };
 
@@ -780,111 +778,85 @@ function computeLeg(hipDeg, kneeDeg, footDeg, shankOffset = 0) {
 
 // 1 at initial contact, fading to 0 by 12%, and ramping in across the
 // last 10% of the cycle (the leg is preparing for contact).
-function contactWindow(p) {
-  if (p < 0.12) return 1 - smooth(p / 0.12);
-  if (p > 0.90) return smooth((p - 0.90) / 0.10);
-  return 0;
+/* -------------------------------------------------------------
+   SAGITTAL PRESETS ARE FAULTS, NOT OVERLAYS
+
+   Each preset below changes the same things the screws change, and the walking
+   pattern then follows from the mechanics. That means an alignment fault can be
+   cancelled exactly by turning the opposite screws.
+
+   Source for causes: Atlas of Limb Prosthetics, chapter 14 (Berger, "Analysis of
+   Amputee Gait", transtibial section). Alignment faults add degrees to the screws:
+     proximal  + = socket tilted anterior (pylon foot-end forward of the socket axis)
+     distal    + = foot set in dorsiflexion (toes up)
+   Component faults change how far the foot can deflect under load:
+     kPF  heel cushion / plantar-flexion bumper: >1 softer, <1 stiffer
+     kDF  dorsiflexion bumper / keel:           >1 softer, <1 harder
+   Timing: flat = foot-flat reached sooner (+), rise = heel rise later (+).
+   ------------------------------------------------------------- */
+const SAGITTAL_FAULTS = {
+  flexedIC:         { proximal: +9 },                   // too much anterior socket tilt (or a dorsiflexed foot)
+  hyperextensionIC: { distal: -9 },                     // foot set in too much plantarflexion (or posterior tilt)
+  heelCompression:  { kPF: 1.7, flat: +0.03 },         // heel cushion too soft: foot slap, reduced knee flexion
+  abruptFlexion:    { kPF: 0.0, flat: -0.04 },        // heel cushion too stiff: abrupt, excessive knee flexion
+  earlyHeelRise:    { kDF: 1.5, rise: -0.07 },          // bumper a little soft / keel short: heel lifts early
+  dropOff:          { kDF: 2.2, rise: -0.04 },          // bumper too soft / keel short: knee drops early
+  lateHeelOff:      { kDF: 0.6, rise: +0.06 }           // bumper too hard / keel long: delayed knee flexion
+};
+
+function sagittalFault(deviation) {
+  const f = SAGITTAL_FAULTS[deviation] || {};
+  return {
+    proximal: f.proximal || 0, distal: f.distal || 0,
+    kPF: f.kPF === undefined ? 1 : f.kPF, kDF: f.kDF === undefined ? 1 : f.kDF,
+    flat: f.flat || 0, rise: f.rise || 0
+  };
 }
 
-function applySagittalDeviation(angles, p, deviation) {
-  let hip = angles.hip;
-  let knee = angles.knee;
-
-  if (plane !== "sagittal") return { hip, knee };
-
-  switch (deviation) {
-    case "hyperextensionIC":
-      // Knee driven back into extension around initial contact.
-      knee -= 18 * contactWindow(p);
-      break;
-
-    case "flexedIC":
-      // Knee stays more flexed at initial contact.
-      knee += 22 * contactWindow(p);
-      break;
-
-    case "abruptFlexion":
-      // Rapid extra knee flexion in early loading response, then recovery.
-      knee += 25 * smooth((p - 0.02) / 0.10) * (1 - smooth((p - 0.14) / 0.16));
-      break;
-
-    case "dropOff":
-      // Extra knee flexion as the limb unloads in late stance.
-      knee += 15 * smooth((p - 0.50) / 0.12) * (1 - smooth((p - 0.62) / 0.10));
-      break;
-  }
-
-  return { hip, knee };
+// The walking curves are the same for every preset; the faults act through the screws,
+// the foot's stiffness and the timing of the foot roll.
+function applySagittalDeviation(angles) {
+  return { hip: angles.hip, knee: angles.knee };
 }
 
 // Foot angle against the floor (+ = toes up) for the prosthetic foot.
 function footPitch(p, deviation) {
-  let pitch = curveAt(CURVES.foot, p);
-
-  switch (deviation) {
-    case "heelCompression":
-      // Heel cushion collapses: the foot slaps down past flat.
-      if (p < 0.12) pitch -= 16 * Math.sin(Math.PI * p / 0.12);
-      break;
-
-    case "earlyHeelRise": {
-      // Heel lifts too soon in midstance.
-      const w = smooth((p - 0.22) / 0.10) * (1 - smooth((p - 0.50) / 0.08));
-      pitch -= 16 * w;
-      break;
-    }
-
-    case "lateHeelOff": {
-      // Heel stays down too long, then lifts late.
-      const w = smooth((p - 0.38) / 0.08) * (1 - smooth((p - 0.58) / 0.06));
-      pitch *= 1 - 0.8 * w;
-      break;
-    }
-
-    case "dropOff": {
-      // Foot flattens late in stance as support falls away.
-      const w = smooth((p - 0.48) / 0.08) * (1 - smooth((p - 0.62) / 0.08));
-      pitch += 12 * w;
-      break;
-    }
-  }
-
-  return pitch;
+  const f = sagittalFault(deviation);
+  // Timing faults slide parts of the foot-roll curve earlier or later.
+  const shift = f.flat * bump(p, 0.00, 0.03, 0.10, 0.16)      // loading response: foot-flat sooner or later
+              - f.rise * bump(p, 0.30, 0.38, 0.58, 0.68);     // heel rise: sooner (-) or later (+)
+  return curveAt(CURVES.foot, p + shift);
 }
 
-/* =============================================================
-   PART 6 — SIDE-ON POSE, GROUND CONTACT AND WALKING PROGRESS
-
-   The legs are built from the joint curves above. The pelvis is then
-   placed at whatever height puts the lowest part of either foot ON the
-   floor, so the heel genuinely lands at initial contact and the body
-   bobs naturally.
-
-   The floor ticks scroll backwards at exactly the rate that keeps the
-   planted foot still, so the stance foot does not skate along the ground.
-   ============================================================= */
-
 // Keep the prosthetic ankle inside its range and pass anything left over up the chain.
-//   hip, knee   joint angles the walking curves (and any preset) ask for
+//   hip, knee   joint angles the walking curves ask for
 //   phi         foot angle against the floor the curves ask for (+ = toes up)
-//   proximal    pylon tilt set at the proximal adapter
-//   distal      foot dorsiflexion set at the distal adapter (+ = toes up)
+//   proximal    pylon tilt at the proximal adapter (screws + any fault)
+//   distal      foot dorsiflexion set at the distal adapter (screws + any fault)
 //   load        how much body weight the foot carries (0 = swinging, 1 = planted)
+//   kPF, kDF    foot stiffness (1 = normal); see SAGITTAL_FAULTS
 //
-// Planted foot: the sole lies on the floor, so its angle is fixed and the SHANK has to
-// move instead. Swinging foot: nothing holds the foot, so it follows the shank.
-function resolveAnkle(hip, knee, phi, proximal, distal, load) {
-  const shank0 = hip - knee + proximal;          // shank angle the curves ask for
-  const demand = phi - shank0;                   // ankle dorsiflexion the curves ask for
-  const excess = Math.max(0, demand - ANKLE.dfRange);
+// The foot is rigid with the pylon apart from its small deflection, so the proximal and distal
+// tilts simply ADD: together they set the angle between the limb and the foot. When the foot is
+// planted flat, that angle forces the SHANK to lean differently, and the knee and hip follow.
+// Swinging foot: nothing holds it, so it follows the shank.
+function resolveAnkle(hip, knee, phi, proximal, distal, load, kPF = 1, kDF = 1) {
+  const tilt = proximal + distal;                           // total set angle between limb and foot
+  const dfBase = phi - (hip - knee);                        // dorsiflexion the walking curves ask for
+  const excess = Math.max(0, dfBase - ANKLE.dfRange);       // asked for more than the foot allows
+
+  // How much the foot actually deflects under load. A softer heel or bumper allows more.
+  const scaled = dfBase < 0 ? kPF * dfBase : kDF * dfBase;
+  const deflection = Math.min(scaled, ANKLE.dfRange);       // never more than the limit
 
   // How far the shank angle is forced to change while the foot is planted
   // (+ = shank leans forward LESS, - = leans forward MORE).
-  const shift = (excess - distal) * load;
+  const shift = (dfBase - deflection - tilt) * load;
 
   // Swinging foot keeps its set angle and cannot dorsiflex past the limit.
-  const footDeg = phi + (distal - excess) * (1 - load);
+  const footDeg = phi + (tilt - excess) * (1 - load);
 
+  const shank0 = hip - knee + proximal;
   let h = hip, k = knee;
   if (Math.abs(shift) > 1e-9) {
     // Keep the pelvis roughly where it was: when the shank tips by `shift`,
@@ -904,7 +876,7 @@ function resolveAnkle(hip, knee, phi, proximal, distal, load) {
     hip: h, knee: k, footDeg,
     df: footDeg - shankNow,            // dorsiflexion actually at the ankle now
     limit: ANKLE.dfRange + distal,     // the most it is allowed to be
-    excess,
+    excess, shift,
     dHip: h - hip, dKnee: k - knee     // how much the knee and hip were pushed
   };
 }
@@ -920,17 +892,18 @@ function sagittalPose(p, deviation) {
   );
 
   const base = { hip: curveAt(CURVES.hip, p), knee: curveAt(CURVES.knee, p) };
-  const angles = applySagittalDeviation(base, p, deviation);
+  const angles = applySagittalDeviation(base);
+  const fault = sagittalFault(deviation);
 
   // Sagittal set screws: proximal tilts the pylon, distal sets the foot's dorsiflexion.
   const k = SCREW_STEP_DEG * SCREW_DIRECTION;
-  const proximalAngle = (screwValues.proximalAnterior - screwValues.proximalPosterior) * k;
-  const distalAngle = (screwValues.distalAnterior - screwValues.distalPosterior) * k;
+  const proximalAngle = (screwValues.proximalAnterior - screwValues.proximalPosterior) * k + fault.proximal;
+  const distalAngle = (screwValues.distalAnterior - screwValues.distalPosterior) * k + fault.distal;
 
   // The ankle can only dorsiflex so far; anything extra goes up to the knee and hip.
   const ankle = resolveAnkle(
     angles.hip, angles.knee, footPitch(p, deviation),
-    proximalAngle, distalAngle, prostheticLoad(p)
+    proximalAngle, distalAngle, prostheticLoad(p), fault.kPF, fault.kDF
   );
 
   const pros = computeLeg(ankle.hip, ankle.knee, ankle.footDeg, proximalAngle);
@@ -1115,68 +1088,71 @@ function bump(p, a, b, c, d) {
   return smooth((p - a) / (b - a)) * (1 - smooth((p - c) / (d - c)));
 }
 
-// Frontal-plane alignment of the prosthesis.
+// Frontal-plane alignment of the prosthesis, from the screws plus any preset fault.
 //   lp  proximal adapter: how far the pylon is tilted relative to the socket.
-//       + = the foot end of the pylon points toward the lateral side.
-//   ld  distal adapter: how far the pylon leans when the foot is flat on the floor.
+//       + = the foot end of the pylon points toward the lateral side (foot "outset").
+//   ld  distal adapter: how far the pylon leans relative to a flat foot.
 //       + = the top of the pylon leans toward the midline ("medially leaning pylon").
-//   roll, thrust  extra foot roll or knee thrust from a preset (stance only).
-// stanceAxis is the lean of the SOCKET while the foot is planted (+ = top toward the midline).
-// The two adapters add a fixed bend; they never change during the walk.
+// Atlas of Limb Prosthetics ch.14 describes these faults from the limb's point of view: the
+// limb keeps its normal path and the FOOT ends up too far medial or lateral to the line of force
+// through the socket. A foot too far medial gives lateral thrust, with medial brim pressure and
+// lateral gapping; out-setting the foot cures it. The mirror image is a foot too far lateral.
+// So here the faults move the foot, and the thrust follows from the misalignment.
+//   chi   how much of ld leans the pylon (foot stays flat) versus rolls the foot onto an edge
+//   gamma how strongly a misalignment turns into a knee thrust at midstance
+const FRONTAL_FAULTS = {
+  lateralLoading: { ld: +9, chi: 0.15 },    // pylon leans against the foot, so the foot rolls onto its lateral edge
+  medialLoading:  { ld: -9, chi: 0.15 },
+  medialPylon:    { ld: +7, chi: 0.90 },    // pylon top leans toward the midline, foot stays flat
+  lateralPylon:   { ld: -7, chi: 0.90 },
+  medialGap:      { lp: +5, gamma: 0.5 },   // foot too far lateral: lateral brim pressure, medial gapping
+  lateralGap:     { lp: -5, gamma: 0.5 },   // foot too far medial: medial brim pressure, lateral gapping
+  varusThrust:    { lp: -5, gamma: 1.2 },   // lateral thrust (Atlas): foot too far medial
+  valgusThrust:   { lp: +5, gamma: 1.2 }    // medial thrust: foot too far lateral (mirror image)
+};
+
 function frontalAlignment(p, deviation) {
   const sv = screwValues;
   const k = SCREW_STEP_DEG * SCREW_DIRECTION;
+  const f = FRONTAL_FAULTS[deviation] || {};
 
-  let lp = (sv.proximalLateral - sv.proximalMedial) * k;
-  let ld = (sv.distalMedial - sv.distalLateral) * k;
-  let roll = 0, thrust = 0;
+  const lp = (sv.proximalLateral - sv.proximalMedial) * k + (f.lp || 0);
+  const ld = (sv.distalMedial - sv.distalLateral) * k + (f.ld || 0);
+  const chi = f.chi === undefined ? 0.9 : f.chi;
+  const gamma = f.gamma === undefined ? 0.6 : f.gamma;
 
+  const lean = chi * ld;                 // pylon leaning over a flat foot
+  const rollPart = (1 - chi) * ld;       // foot rolling onto an edge instead
+
+  // Net "foot too lateral" misalignment in degrees (negative = foot too medial).
+  // A foot rolled onto its lateral edge also moves the pressure laterally, so it counts half.
+  const o = lean + lp + 0.5 * rollPart;
+
+  // The knee thrusts toward the side the foot is NOT on, peaking in midstance.
   const env = (p >= 0.12 && p <= 0.50) ? Math.sin(Math.PI * (p - 0.12) / 0.38) : 0;
+  const psi = gamma * o * env;
 
-  switch (deviation) {
-    case "medialPylon": ld += 7; break;
-    case "lateralPylon": ld -= 7; break;
-    case "medialGap": lp -= 5; break;       // socket top leans medially, so lateral pressure
-    case "lateralGap": lp += 5; break;
-    case "lateralLoading": roll = 5; break; // lateral edge of the foot loaded
-    case "medialLoading": roll = -5; break;
-    case "varusThrust": thrust = -4 * env; break;
-    case "valgusThrust": thrust = 4 * env; break;
-  }
-
-  return { lp, ld, roll, thrust, stanceAxis: ld + roll + thrust - lp };
+  return { lp, ld, chi, lean, rollPart, o, psi };
 }
 
 // Brim state at cycle position p.
 //   ml: +1 = lateral brim pressure / medial gapping, -1 = the reverse
 //   ap: +1 = anterior brim pressure / posterior gapping, -1 = the reverse
-//   outset: degrees the socket top leans toward the midline in stance (negative = away)
+//   outset: degrees of "foot too lateral" misalignment (negative = foot too medial)
 function brimState(p, deviation) {
-  const sv = screwValues;
   const load = prostheticLoad(p);
   const clamp1 = (v) => Math.max(-1, Math.min(1, v));
 
-  // Frontal: when the socket top leans toward the midline over a planted foot, the limb
-  // presses on the lateral wall and gaps medially (and the reverse).
-  let o = frontalAlignment(p, deviation).stanceAxis;
-  o += ({ wideBOS: 3, narrowBOS: -3 })[deviation] || 0;
-  o *= load;
+  // Frontal: foot too lateral -> lateral pressure and medial gapping (and the reverse).
+  const fa = frontalAlignment(p, deviation);
+  const o = (fa.o + fa.psi) * load;
 
-  // Sagittal: foot placed anterior -> anterior pressure and posterior gapping.
-  let s = ((sv.proximalAnterior - sv.proximalPosterior) -
-           0.5 * (sv.distalAnterior - sv.distalPosterior)) * SCREW_STEP_DEG * SCREW_DIRECTION * load;
-  const early = p < 0.12 ? 1 - smooth(p / 0.12) : 0;
-  switch (deviation) {
-    case "hyperextensionIC": s += 8 * early; break;
-    case "flexedIC": s -= 8 * early; break;
-    case "abruptFlexion": s -= 8 * bump(p, 0.02, 0.12, 0.14, 0.30); break;
-    case "heelCompression": s -= 5 * early; break;
-    case "earlyHeelRise": s += 5 * bump(p, 0.25, 0.35, 0.45, 0.55); break;
-    case "lateHeelOff": s -= 5 * bump(p, 0.38, 0.46, 0.56, 0.64); break;
-    case "dropOff": s -= 7 * bump(p, 0.48, 0.56, 0.60, 0.68); break;
-  }
+  // Sagittal: the shank angle the foot forces on the limb. Leaning forward more (a dorsiflexed
+  // foot or an anterior tilt) is a knee flexion tendency with posterior pressure; leaning back
+  // (plantarflexion, posterior tilt) is an extension tendency with anterior pressure.
+  const s = sagittalPose(p, deviation).ankle.shift;
 
-  return { outset: o, ml: clamp1(o / 5), ap: clamp1(s / 8) };
+  return { outset: o, ml: clamp1(o / 5), ap: clamp1(s / 6) };
 }
 
 // Draw socket + limb + adapters + pylon in screen coordinates.
@@ -1311,7 +1287,8 @@ function frontalPose(p, deviation) {
   const make = (leg, sign, isPros, dy, legPhase) => {
     const swingProgress = legPhase > 0.62 ? (legPhase - 0.62) / 0.38 : 0;
     const hipW = sign * hipX + shift;
-    const footW = sign * (footHalf + F.circumduction * Math.sin(Math.PI * swingProgress));
+    const footTarget = sign * (footHalf + F.circumduction * Math.sin(Math.PI * swingProgress));
+    let footW = footTarget;
     const t = Math.max(0.25, Math.min(0.75, leg.knee.y / leg.ankle.y));
 
     let kneeW = hipW + (footW - hipW) * t;
@@ -1324,19 +1301,38 @@ function frontalPose(p, deviation) {
       const T = leg.knee.y;                       // thigh height
       const Ls = leg.adapter.y - leg.knee.y;      // socket + adapter height
       const Lp = leg.ankle.y - leg.adapter.y;     // pylon height
+      const total = T + Ls + Lp;
       const tanD = (deg) => Math.tan(rad(deg));
+      const toDeg = (r) => r * 180 / Math.PI;
 
-      // Planted foot: the foot sits flat, so the alignment sets the lean of the whole piece.
-      const axisStance = fa.stanceAxis;
+      // Neutral alignment: the limb is straight, so the socket axis follows the line from the
+      // hip to the foot and the knee sits ON that line (no valgus or varus).
+      const axisNeutral = toDeg(Math.atan((footTarget - hipW) / total));
+      const kneeNeutral = hipW + (footTarget - hipW) * (T / total);
+
+      // Planted foot: the limb keeps its normal path, so the knee stays on the neutral line
+      // and the faults move the FOOT (see FRONTAL_FAULTS).
+      const axisStance = axisNeutral + fa.lean;
+      const footStance = kneeNeutral + Ls * tanD(axisStance) + Lp * tanD(axisStance + fa.lp);
+
+      // A knee thrust swings the whole shank about the planted foot.
+      const axisThrust = axisStance + fa.psi;
+      const pylonThrust = axisThrust + fa.lp;
+
       // Swinging foot: the socket follows the thigh so the piece reaches the foot.
-      const axisSwing = Math.atan((footW - hipW - Lp * tanD(fa.lp)) / (T + Ls + Lp)) * 180 / Math.PI;
+      const axisSwing = toDeg(Math.atan((footTarget - hipW - Lp * tanD(fa.lp)) / total));
 
-      const axis = load * axisStance + (1 - load) * axisSwing;    // socket lean (+ = foot end lateral)
+      const footNow = load * footStance + (1 - load) * footTarget;
+      const axis = load * axisThrust + (1 - load) * axisSwing;     // socket lean (+ = foot end lateral)
       const pylonAxis = axis + fa.lp;
 
-      adapterW = footW - Lp * tanD(pylonAxis);
+      footW = footNow;
+      adapterW = footNow - Lp * tanD(pylonAxis);
       kneeW = adapterW - Ls * tanD(axis);
-      roll = pylonAxis - fa.ld;                   // zero when planted flat, shows in swing
+
+      // Foot roll, lateral edge down = +. The foot is rigid with the pylon, set at fa.ld to it,
+      // so any pylon lean the flat foot does not follow rolls the foot onto an edge.
+      roll = fa.ld - (pylonAxis - axisNeutral) + fa.psi * load;   // a thrust swings the shank about a foot the floor holds flat
     }
 
     return {
@@ -1489,6 +1485,8 @@ function drawPlanView() {
 
   // Footprints left where each heel struck the floor.
   // (+18 moves the mark from the heel toward the middle of the foot)
+  const prosPlant = frontalPose(0.30, deviation).pros.footW;     // where each foot actually lands
+  const bioPlant = frontalPose(0.80, deviation).bio.footW;
   const prosIC = sagittalPose(0, deviation).pros.heel.x + 9 + 18;
   const bioIC = sagittalPose(0.5, deviation).bio.heel.x - 9 + 18;
   for (let k = Math.floor(q) - 3; k <= Math.floor(q) + 1; k++) {
@@ -1497,7 +1495,7 @@ function drawPlanView() {
       const y = py(distanceAtAbs(t, deviation) + rel);
       if (y < 24 || y > 204) continue;
       const age = Math.max(0.2, 1 - (q - t) / 1.8);
-      m += `<ellipse cx="${px(sign * half).toFixed(1)}" cy="${y.toFixed(1)}" rx="6.5" ry="14"
+      m += `<ellipse cx="${px(sign > 0 ? prosPlant : bioPlant).toFixed(1)}" cy="${y.toFixed(1)}" rx="6.5" ry="14"
         fill="${color}" opacity="${(0.55 * age).toFixed(2)}"/>`;
     }
   }
@@ -1528,12 +1526,107 @@ function drawPlanView() {
 }
 
 /* =============================================================
+   PRESET INFORMATION
+
+   What each preset is, its usual cause (Atlas of Limb Prosthetics, ch. 14, transtibial gait
+   analysis) and, for alignment faults, which screws cancel it. The correction is worked out
+   from the fault itself, so it always matches the model. Hidden during a study-mode quiz.
+   ============================================================= */
+const PRESET_INFO = {
+  flexedIC:         { what: "Excessive knee flexion between heel strike and midstance",
+                      cause: "foot set in too much dorsiflexion, or the socket tilted too far anterior." },
+  hyperextensionIC: { what: "Insufficient knee flexion: the knee is driven back toward hyperextension",
+                      cause: "foot set in too much plantarflexion, or the socket tilted posteriorly." },
+  heelCompression:  { what: "Soft heel: quick foot slap, then reduced and delayed knee flexion",
+                      cause: "heel cushion or plantar-flexion bumper too soft.", component: "a firmer heel cushion" },
+  abruptFlexion:    { what: "Abrupt, excessive knee flexion at loading",
+                      cause: "heel cushion or plantar-flexion bumper too stiff, so the impact is not absorbed.", component: "a softer heel cushion" },
+  earlyHeelRise:    { what: "Heel lifts too early (a mild form of drop-off)",
+                      cause: "dorsiflexion bumper slightly soft, or the keel too short.", component: "a firmer bumper or a longer keel" },
+  dropOff:          { what: "Early knee flexion in late stance (\"drop-off\")",
+                      cause: "dorsiflexion bumper too soft, or the keel / toe break too far back.", component: "a firmer bumper or a longer keel" },
+  lateHeelOff:      { what: "Delayed knee flexion, \"walking uphill\"",
+                      cause: "dorsiflexion bumper too hard, or the keel too far forward.", component: "a softer bumper or a shorter keel" },
+  lateralLoading:   { what: "Foot loads its lateral edge",
+                      cause: "the pylon leans against the foot (distal adapter tilt)." },
+  medialLoading:    { what: "Foot loads its medial edge",
+                      cause: "the pylon leans against the foot (distal adapter tilt)." },
+  medialPylon:      { what: "Pylon leans medially (top toward the midline)",
+                      cause: "tilt at the distal adapter, which leaves the foot too far lateral." },
+  lateralPylon:     { what: "Pylon leans laterally (top away from the midline)",
+                      cause: "tilt at the distal adapter, which leaves the foot too far medial." },
+  medialGap:        { what: "Lateral brim pressure with medial gapping",
+                      cause: "the foot sits too far lateral to the line of force through the socket." },
+  lateralGap:       { what: "Medial brim pressure with lateral gapping",
+                      cause: "the foot sits too far medial to the line of force through the socket." },
+  varusThrust:      { what: "Lateral thrust at midstance (medial brim presses, lateral brim gaps)",
+                      cause: "foot too far medial to the line of force through the socket; out-set the foot." },
+  valgusThrust:     { what: "Medial thrust at midstance",
+                      cause: "foot too far lateral to the line of force; the mirror image of lateral thrust." },
+  narrowBOS:        { what: "Narrow walking base", behaviour: true,
+                      cause: "the patient places the feet too close together (balance, habit or pain)." },
+  wideBOS:          { what: "Wide walking base", behaviour: true,
+                      cause: "the patient widens the base (insecurity, pain, or a prosthesis that is too long)." }
+};
+
+// Turn a fault into plain instructions, e.g. "tighten the posterior proximal screw about 6 clicks".
+function screwFixText(deviation) {
+  const click = 2 * SCREW_STEP_DEG * SCREW_DIRECTION;      // degrees per click (a pair moves together)
+  const clicks = (deg) => Math.max(1, Math.round(Math.abs(deg / click)));
+  const steps = [];
+
+  const sf = SAGITTAL_FAULTS[deviation];
+  if (sf) {
+    if (sf.proximal) steps.push(`the <b>${sf.proximal > 0 ? "posterior" : "anterior"} proximal</b> screw about ${clicks(sf.proximal)} clicks`);
+    if (sf.distal) steps.push(`the <b>${sf.distal > 0 ? "posterior" : "anterior"} distal</b> screw about ${clicks(sf.distal)} clicks`);
+  }
+  const ff = FRONTAL_FAULTS[deviation];
+  if (ff) {
+    if (ff.lp) steps.push(`the <b>${ff.lp > 0 ? "medial" : "lateral"} proximal</b> screw about ${clicks(ff.lp)} clicks`);
+    if (ff.ld) steps.push(`the <b>${ff.ld > 0 ? "lateral" : "medial"} distal</b> screw about ${clicks(ff.ld)} clicks`);
+  }
+  return steps;
+}
+
+let lastPresetNote = null;
+
+function updatePresetNote() {
+  const note = document.getElementById("presetNote");
+  if (!note) return;
+
+  const quiz = hiddenChallenge && !challengeRevealed;
+  const info = PRESET_INFO[deviationSelect.value];
+  let html;
+
+  if (quiz || !info) {
+    html = "Choose a preset to exaggerate a movement.";
+  } else {
+    html = `<strong>${info.what}.</strong><br>Usual cause: ${info.cause}<br>`;
+    const steps = screwFixText(deviationSelect.value);
+    if (info.behaviour) {
+      html += "<b>Not an alignment fault:</b> the screws do not correct it. It is addressed by gait training and by looking for the patient's reason.";
+    } else if (info.component) {
+      html += `<b>Component fault:</b> the real fix is ${info.component}, not the screws. The screws can only partly mask it.`;
+    } else if (steps.length) {
+      html += "<b>Screw fix:</b> tighten " + steps.join(", or ") + ".";
+    }
+  }
+
+  if (html !== lastPresetNote) {
+    note.innerHTML = html;
+    lastPresetNote = html;
+  }
+}
+
+/* =============================================================
    PART 8C — CHOOSE WHICH VIEW TO DRAW
    ============================================================= */
 
 function drawFigure() {
   if (plane === "sagittal") drawSagittal();
   else drawFrontal();
+
+  updatePresetNote();
 
   if (plane === "frontal") drawPlanView();
 }
